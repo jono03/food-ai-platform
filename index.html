@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>스마트 냉장고</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🧊</div>
+    <div class="logo-text">
+      <h1>스마트 냉장고</h1>
+      <p>AI 기반 식품 관리 &amp; 레시피 추천</p>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-outline" id="loginBtn">↗ 로그인</button>
+    <button class="btn btn-primary" id="addItemBtn">+ 식품 추가</button>
+  </div>
+</header>
+
+<!-- ── MAIN ── -->
+<div class="main">
+  <aside class="sidebar">
+    <div class="card">
+      <div class="card-title">냉장고 현황</div>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-icon green">📦</div>
+          <div class="stat-num" id="stat-total">0</div>
+          <div class="stat-label">전체 식품</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-icon yellow">⏰</div>
+          <div class="stat-num" id="stat-expiring">0</div>
+          <div class="stat-label">임박 (3일 이내)</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-icon red">⚠️</div>
+          <div class="stat-num" id="stat-expired">0</div>
+          <div class="stat-label">유통기한 지남</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">보관 위치</div>
+      <div class="location-list">
+        <div class="location-row">
+          <div class="location-name">🧊 냉장</div>
+          <div class="bar-track"><div class="bar-fill" id="bar-냉장" style="width:0%"></div></div>
+          <div class="location-count" id="cnt-냉장">0</div>
+        </div>
+        <div class="location-row">
+          <div class="location-name">❄️ 냉동</div>
+          <div class="bar-track"><div class="bar-fill" id="bar-냉동" style="width:0%;background:#818cf8"></div></div>
+          <div class="location-count" id="cnt-냉동">0</div>
+        </div>
+        <div class="location-row">
+          <div class="location-name">🏠 실온</div>
+          <div class="bar-track"><div class="bar-fill" id="bar-실온" style="width:0%;background:#fb923c"></div></div>
+          <div class="location-count" id="cnt-실온">0</div>
+        </div>
+      </div>
+    </div>
+    <div class="card soon-card" id="soon-card" style="display:none">
+      <div class="soon-title">⚠️ 곧 만료되는 식품</div>
+      <div id="soon-list"></div>
+    </div>
+    <div class="card expired-card" id="expired-card" style="display:none">
+      <div class="expired-title">🚨 유통기한 지난 식품</div>
+      <div id="expired-list"></div>
+    </div>
+    <button class="ai-btn" id="recipeBtn">✨ AI 레시피 추천받기</button>
+  </aside>
+
+  <div class="content">
+    <div class="search-filter">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" type="text" placeholder="식품 검색..." id="searchInput" />
+      </div>
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="all">전체</button>
+        <button class="filter-tab" data-filter="냉장">냉장</button>
+        <button class="filter-tab" data-filter="냉동">냉동</button>
+        <button class="filter-tab" data-filter="실온">실온</button>
+      </div>
+    </div>
+    <div class="food-grid" id="foodGrid"></div>
+  </div>
+</div>
+
+<!-- 모달: 온보딩 -->
+<div class="modal-overlay open" id="onboardModal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">👋 환영합니다!</div>
+    </div>
+    <p style="color:var(--gray-600);font-size:14px;margin-bottom:20px;">취향을 알면 더 잘 맞는 레시피를 추천해드려요!</p>
+    <div class="onboard-step" id="ob-step">1 / 2</div>
+    <div class="onboard-q" id="ob-q"></div>
+    <div class="onboard-options" id="ob-options"></div>
+    <button class="btn btn-primary btn-full" id="ob-next-btn">다음</button>
+  </div>
+</div>
+
+<!-- 모달: 로그인 -->
+<div class="modal-overlay" id="loginModal">
+  <div class="modal modal-sm">
+    <div class="login-logo">
+      <div class="icon">🧊</div>
+      <h2>로그인</h2>
+    </div>
+    <div class="form-group">
+      <label class="form-label">이메일</label>
+      <input class="form-input" type="email" placeholder="example@email.com" id="loginEmail" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">비밀번호</label>
+      <input class="form-input" type="password" placeholder="••••••••" id="loginPw" />
+    </div>
+    <button class="btn btn-primary btn-full" id="doLoginBtn">로그인</button>
+    <p class="login-note">계정이 없으신가요? 관리자에게 문의하세요.</p>
+  </div>
+</div>
+
+<!-- 모달: 식품 추가/수정 -->
+<div class="modal-overlay" id="itemModal">
+  <div class="modal modal-md">
+    <div class="modal-header">
+      <div class="modal-title" id="itemModalTitle">🥗 식품 추가</div>
+      <button class="close-btn" data-close="itemModal">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">식품명</label>
+      <input class="form-input" id="f-name" placeholder="예: 우유, 달걀" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">수량</label>
+      <input class="form-input" id="f-qty" placeholder="예: 2개, 500ml" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">보관 위치</label>
+      <select class="form-select" id="f-loc">
+        <option>🧊 냉장</option>
+        <option>❄️ 냉동</option>
+        <option>🏠 실온</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">유통기한</label>
+      <input class="form-input" type="date" id="f-exp" />
+    </div>
+    <button class="btn btn-primary btn-full" id="submitItemBtn">+ 추가하기</button>
+  </div>
+</div>
+
+<!-- 모달: AI 레시피 -->
+<div class="modal-overlay" id="recipeModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title">✨ AI 레시피 추천</div>
+      <button class="close-btn" data-close="recipeModal">✕</button>
+    </div>
+    <div class="recipe-tabs">
+      <div class="recipe-tab-panel active-panel">
+        <div class="panel-title">✅ 지금 바로 만들 수 있어요 <span class="recipe-count" id="cnt-now">0개</span></div>
+        <div class="panel-sub">현재 재료로 즉시 가능</div>
+      </div>
+      <div class="recipe-tab-panel shop-panel">
+        <div class="panel-title">🛒 재료 조금만 사면 만들 수 있어요 <span class="recipe-count" id="cnt-buy">0개</span></div>
+        <div class="panel-sub">1~2가지만 추가 구매</div>
+      </div>
+    </div>
+    <div class="recipe-grid" id="recipeGrid"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- JS 로드 순서: data → render → modal → main -->
+<script src="js/data.js"></script>
+<script src="js/render.js"></script>
+<script src="js/modal.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
+
