@@ -58,6 +58,13 @@ function doLogin() {
 // ── 식품 추가/수정 모달 ──────────────────────────────────────
 
 function openAddItem() {
+  // 로그인 체크
+  if (!currentUser) {
+    showToast("⚠️ 로그인 후 식품을 추가할 수 있어요");
+    openLogin();
+    return;
+  }
+
   editingItemId = null;
 
   // 폼 초기화
@@ -72,6 +79,13 @@ function openAddItem() {
 }
 
 function openEditItem(item_id) {
+  // 로그인 체크
+  if (!currentUser) {
+    showToast("⚠️ 로그인 후 식품을 수정할 수 있어요");
+    openLogin();
+    return;
+  }
+
   const item = fridgeItems.find(i => i.item_id === item_id);
   if (!item) return;
 
@@ -89,6 +103,12 @@ function openEditItem(item_id) {
 }
 
 function submitItem() {
+  // 로그인 체크 (모달이 열린 상태에서 혹시 로그아웃된 경우 대비)
+  if (!currentUser) {
+    showToast("⚠️ 로그인이 필요합니다");
+    return;
+  }
+
   const name             = document.getElementById("f-name").value.trim();
   const quantity         = document.getElementById("f-qty").value.trim();
   const storage_location = document.getElementById("f-loc").value;
@@ -115,7 +135,7 @@ function submitItem() {
     // FRIDGE_ITEM 엔티티 구조 그대로 생성
     const newItem = {
       item_id          : nextItemId++,
-      user_id          : currentUser ? currentUser.user_id : 1,
+      user_id          : currentUser.user_id,   // 로그인된 사용자 ID만 사용
       name,
       quantity,
       storage_location,
@@ -133,6 +153,12 @@ function submitItem() {
 }
 
 function deleteItem(item_id) {
+  // 로그인 체크
+  if (!currentUser) {
+    showToast("⚠️ 로그인이 필요합니다");
+    return;
+  }
+
   if (!confirm("삭제하시겠습니까?")) return;
 
   // 실제 서비스: DELETE /api/fridge-items/:item_id
