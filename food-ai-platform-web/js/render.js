@@ -251,13 +251,20 @@ function toggleSteps(btn) {
 
 /** 레시피 선택 → USER_RECIPE에 저장 */
 function selectRecipe(btn) {
+  // 로그인 체크
+  if (!currentUser) {
+    showToast("⚠️ 로그인 후 레시피를 선택할 수 있어요");
+    openLogin();
+    return;
+  }
+
   const recipe_name = btn.dataset.name;
   const category    = btn.dataset.category;
 
   // USER_RECIPE 엔티티에 추가 (실제 서비스: POST /api/user-recipes)
   userRecipes.push({
     recipe_id   : nextRecipeId++,
-    user_id     : currentUser ? currentUser.user_id : 1,
+    user_id     : currentUser.user_id,   // 로그인된 사용자 ID만 사용
     recipe_name,
     category,
   });
