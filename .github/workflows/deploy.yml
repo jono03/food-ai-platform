@@ -28,9 +28,10 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+          cache: gradle
 
-      - name: Test
-        run: ./gradlew test
+      - name: Test and Build Jar
+        run: ./gradlew test bootJar --no-daemon
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -48,6 +49,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./food-ai-flatform-server
+          file: ./food-ai-flatform-server/Dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/food-ai-flatform-server:main
           platforms: linux/arm64
