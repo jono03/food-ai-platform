@@ -73,6 +73,8 @@ function openAddItem() {
   document.getElementById("f-qty").value  = "";
   document.getElementById("f-loc").value  = "🧊 냉장";
   document.getElementById("f-exp").value  = "";
+  const todayStr = new Date().toISOString().split("T")[0];
+  document.getElementById("f-exp").min = todayStr;
   document.getElementById("submitItemBtn").textContent = "+ 추가하기";
 
   openModal("itemModal");
@@ -97,6 +99,8 @@ function openEditItem(item_id) {
   document.getElementById("f-qty").value  = item.quantity;
   document.getElementById("f-loc").value  = item.storage_location;
   document.getElementById("f-exp").value  = item.expiration_date;
+  const todayStr = new Date().toISOString().split("T")[0];
+  document.getElementById("f-exp").min = todayStr;
   document.getElementById("submitItemBtn").textContent = "💾 저장하기";
 
   openModal("itemModal");
@@ -120,7 +124,10 @@ function submitItem() {
   }
 
   const today = new Date().toISOString().split("T")[0];
-
+  if (expiration_date < today) {
+    showToast("⚠️ 유통기한이 오늘 이전입니다. 확인해주세요.");
+    return;
+  }
   if (editingItemId !== null) {
     // ── 수정 (실제 서비스: PUT /api/fridge-items/:item_id) ──
     const item = fridgeItems.find(i => i.item_id === editingItemId);
