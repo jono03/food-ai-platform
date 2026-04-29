@@ -1,0 +1,160 @@
+name: Server CI/CD with Docker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - food-ai-flatform-server/**
+      - .github/workflows/deploy.yml
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-server
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: food-ai-flatform-server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Test
+        run: ./gradlew test
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./food-ai-flatform-server
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/food-ai-flatform-server:main
+          platforms: linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to OCI
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USERNAME }}
+          key: ${{ secrets.OCI_KEY }}
+          port: 22
+          script: |
+            set -e
+
+            APP_IMAGE=${{ secrets.DOCKER_USERNAME }}/food-ai-flatform-server:main
+            APP_DIR="${{ secrets.APP_DIR }}"
+            APP_DIR=${APP_DIR:-/home/${{ secrets.OCI_USERNAME }}/food-ai-platform}
+            ENV_FILE="$APP_DIR/.env"
+            NETWORK_NAME=food-ai-platform
+            DB_CONTAINER=food-ai-platform-mysql
+            CONTAINER_NAME=food-ai-flatform-server
+            DB_IMAGE=mysql:8.4
+            APP_PORT=8080
+
+            mkdir -p "$APP_DIR"
+
+            if [ ! -f "$ENV_FILE" ]; then
+              echo ".env file not found: $ENV_FILE"
+              echo "Create it on the server before deploying."
+              exit 1
+            fi
+
+            read_env() {
+              grep -E "^$1=" "$ENV_FILE" | tail -n 1 | cut -d '=' -f 2- | tr -d '\r' || true
+            }
+
+            SERVER_PORT=$(read_env SERVER_PORT)
+            MYSQL_DATABASE=$(read_env MYSQL_DATABASE)
+            MYSQL_USER=$(read_env MYSQL_USER)
+            MYSQL_PASSWORD=$(read_env MYSQL_PASSWORD)
+            MYSQL_ROOT_PASSWORD=$(read_env MYSQL_ROOT_PASSWORD)
+            APP_PORT=${SERVER_PORT:-8080}
+            MYSQL_DATABASE=${MYSQL_DATABASE:-food_ai_platform}
+            MYSQL_USER=${MYSQL_USER:-food_ai_platform}
+
+            if [ -z "$MYSQL_PASSWORD" ]; then
+              echo "MYSQL_PASSWORD is required in $ENV_FILE"
+              exit 1
+            fi
+
+            if [ -z "$MYSQL_ROOT_PASSWORD" ]; then
+              echo "MYSQL_ROOT_PASSWORD is required in $ENV_FILE"
+              exit 1
+            fi
+
+            echo "${{ secrets.DOCKER_PASSWORD }}" | sudo docker login \
+              --username "${{ secrets.DOCKER_USERNAME }}" \
+              --password-stdin
+
+            sudo docker network create "$NETWORK_NAME" || true
+            sudo docker volume create food-ai-platform-mysql-data || true
+            sudo docker pull "$DB_IMAGE"
+            sudo docker pull "$APP_IMAGE"
+
+            if ! sudo docker ps -a --format '{{.Names}}' | grep -qx "$DB_CONTAINER"; then
+              sudo docker run -d \
+                --name "$DB_CONTAINER" \
+                --network "$NETWORK_NAME" \
+                --env-file "$ENV_FILE" \
+                -e MYSQL_DATABASE="$MYSQL_DATABASE" \
+                -e MYSQL_USER="$MYSQL_USER" \
+                -e MYSQL_PASSWORD="$MYSQL_PASSWORD" \
+                -e MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD" \
+                -e TZ=Asia/Seoul \
+                -v food-ai-platform-mysql-data:/var/lib/mysql \
+                --restart unless-stopped \
+                "$DB_IMAGE" \
+                --character-set-server=utf8mb4 \
+                --collation-server=utf8mb4_unicode_ci
+            else
+              sudo docker start "$DB_CONTAINER"
+            fi
+
+            until sudo docker exec "$DB_CONTAINER" mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD" --silent; do
+              echo "Waiting for MySQL to be ready..."
+              sleep 5
+            done
+
+            sudo docker stop "$CONTAINER_NAME" || true
+            sudo docker rm "$CONTAINER_NAME" || true
+
+            sudo docker run -d \
+              --name "$CONTAINER_NAME" \
+              --network "$NETWORK_NAME" \
+              -p "$APP_PORT:8080" \
+              --env-file "$ENV_FILE" \
+              -e SPRING_DATASOURCE_URL="jdbc:mysql://$DB_CONTAINER:3306/$MYSQL_DATABASE?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8" \
+              -e SPRING_DATASOURCE_USERNAME="$MYSQL_USER" \
+              -e SPRING_DATASOURCE_PASSWORD="$MYSQL_PASSWORD" \
+              -e TZ=Asia/Seoul \
+              --restart unless-stopped \
+              "$APP_IMAGE"
+
+            sudo docker image prune -f
