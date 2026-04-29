@@ -152,13 +152,13 @@ function updateSidebar() {
 
 // ── 레시피 모달 렌더링 ───────────────────────────────────────
 function renderRecipes() {
-  const myItems = fridgeItems.map(i => i.name);
+  const myItems = fridgeItems.map(i => i.name.trim());
 
   const nowList = [];   // 지금 바로 만들 수 있는
   const buyList = [];   // 재료 조금만 사면 가능
 
   RECIPE_POOL.forEach(recipe => {
-    const missingNeed  = recipe.need.filter(n => !myItems.includes(n));
+    const missingNeed = recipe.need.filter(n => !myItems.includes(n.trim()));
     const hasAllNeeded = missingNeed.length === 0;
 
     if (hasAllNeeded && recipe.extra.length === 0) {

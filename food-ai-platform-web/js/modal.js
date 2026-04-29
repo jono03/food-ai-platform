@@ -109,7 +109,7 @@ function submitItem() {
     return;
   }
 
-  const name             = document.getElementById("f-name").value.trim();
+  const name = document.getElementById("f-name").value.trim().replace(/\s+/g, " ");
   const quantity         = document.getElementById("f-qty").value.trim();
   const storage_location = document.getElementById("f-loc").value;
   const expiration_date  = document.getElementById("f-exp").value;
