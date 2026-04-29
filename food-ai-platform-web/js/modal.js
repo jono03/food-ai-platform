@@ -98,9 +98,10 @@ function openEditItem(item_id) {
   document.getElementById("f-name").value = item.name;
   document.getElementById("f-qty").value  = item.quantity;
   document.getElementById("f-loc").value  = item.storage_location;
-  document.getElementById("f-exp").value  = item.expiration_date;
   const todayStr = new Date().toISOString().split("T")[0];
   document.getElementById("f-exp").min = todayStr;
+  document.getElementById("f-exp").value =
+  item.expiration_date >= todayStr ? item.expiration_date : "";
   document.getElementById("submitItemBtn").textContent = "💾 저장하기";
 
   openModal("itemModal");
