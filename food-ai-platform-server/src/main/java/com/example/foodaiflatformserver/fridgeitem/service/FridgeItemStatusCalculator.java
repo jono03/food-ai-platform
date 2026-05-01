@@ -4,19 +4,26 @@ import com.example.foodaiflatformserver.fridgeitem.entity.ItemStatus;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
 public class FridgeItemStatusCalculator {
 
+    static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Seoul");
+
     private final Clock clock;
 
     public FridgeItemStatusCalculator() {
-        this(Clock.systemDefaultZone());
+        this(businessClock());
     }
 
     public FridgeItemStatusCalculator(Clock clock) {
         this.clock = Objects.requireNonNull(clock);
+    }
+
+    static Clock businessClock() {
+        return Clock.system(BUSINESS_ZONE);
     }
 
     public FridgeItemStatusResult calculate(LocalDate expirationDate) {

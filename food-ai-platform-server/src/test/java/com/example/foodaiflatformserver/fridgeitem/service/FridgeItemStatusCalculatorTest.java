@@ -58,4 +58,11 @@ class FridgeItemStatusCalculatorTest {
         assertThat(result.status()).isEqualTo(ItemStatus.EXPIRED);
         assertThat(result.statusText()).isEqualTo("2일 지남");
     }
+
+    @DisplayName("기본 비즈니스 시계는 Asia/Seoul 타임존을 사용한다")
+    @Test
+    void usesAsiaSeoulForBusinessClock() {
+        assertThat(FridgeItemStatusCalculator.BUSINESS_ZONE).isEqualTo(ASIA_SEOUL);
+        assertThat(FridgeItemStatusCalculator.businessClock().getZone()).isEqualTo(ASIA_SEOUL);
+    }
 }
