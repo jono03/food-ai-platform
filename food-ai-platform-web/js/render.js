@@ -11,10 +11,8 @@ let currentFilter = "all";
 function getDaysLeft(expiration_date) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  // "YYYY-MM-DD" 문자열을 연·월·일로 직접 파싱 → 로컬 시간 기준 Date 생성
-  // new Date("YYYY-MM-DD")는 UTC 자정으로 파싱되어 KST에서 날짜 오차 발생
-  const [y, m, d] = expiration_date.split("-").map(Number);
-  const exp = new Date(y, m - 1, d);
+  const exp = new Date(expiration_date);
+  exp.setHours(0, 0, 0, 0);
   return Math.ceil((exp - today) / 86400000);
 }
 
@@ -154,13 +152,15 @@ function updateSidebar() {
 
 // ── 레시피 모달 렌더링 ───────────────────────────────────────
 function renderRecipes() {
-  const myItems = fridgeItems.map(i => i.name.trim());
+  // 식품명 앞뒤 공백 및 내부 연속 공백 정규화 후 소문자 변환
+  const normalize = str => str.trim().replace(/\s+/g, " ").toLowerCase();
+  const myItems = fridgeItems.map(i => normalize(i.name));
 
   const nowList = [];   // 지금 바로 만들 수 있는
   const buyList = [];   // 재료 조금만 사면 가능
 
   RECIPE_POOL.forEach(recipe => {
-    const missingNeed = recipe.need.filter(n => !myItems.includes(n.trim()));
+    const missingNeed = recipe.need.filter(n => !myItems.includes(normalize(n)));
     const hasAllNeeded = missingNeed.length === 0;
 
     if (hasAllNeeded && recipe.extra.length === 0) {
