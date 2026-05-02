@@ -31,7 +31,7 @@ function openLogin() {
 
 function doLogin() {
   const email    = document.getElementById("loginEmail").value.trim();
-  const password = document.getElementById("loginPw").value;
+  const password = document.getElementById("loginPw").value.trim();
 
   if (!email || !password) {
     showToast("⚠️ 이메일과 비밀번호를 입력해주세요");
