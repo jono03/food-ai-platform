@@ -49,10 +49,28 @@ function doLogin() {
   closeModal("loginModal");
   showToast("✅ 로그인되었습니다!");
 
-  // 헤더 버튼 텍스트 변경
-  document.getElementById("loginBtn").textContent = `👤 ${currentUser.username}`;
+  // 헤더 버튼 상태 업데이트
+  updateAuthButton();
 
   console.log("로그인된 USER:", currentUser); // 백엔드 연결 전 확인용
+}
+
+// ── 로그아웃 ─────────────────────────────────────────────────
+
+function doLogout() {
+  currentUser = null;
+  updateAuthButton();
+  showToast("👋 로그아웃되었습니다");
+}
+
+// 로그인 상태에 따라 헤더 버튼 텍스트 동기화
+function updateAuthButton() {
+  const btn = document.getElementById("loginBtn");
+  if (currentUser) {
+    btn.textContent = `👤 ${currentUser.username} (로그아웃)`;
+  } else {
+    btn.textContent = "↗ 로그인";
+  }
 }
 
 // ── 식품 추가/수정 모달 ──────────────────────────────────────

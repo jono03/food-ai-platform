@@ -5,7 +5,13 @@
 document.addEventListener("DOMContentLoaded", () => {
 
   // ── 버튼 이벤트 등록 ───────────────────────────────────────
-  document.getElementById("loginBtn")   .addEventListener("click", openLogin);
+  document.getElementById("loginBtn").addEventListener("click", () => {
+    if (currentUser) {
+      doLogout();
+    } else {
+      openLogin();
+    }
+  });
   document.getElementById("addItemBtn") .addEventListener("click", openAddItem);
   document.getElementById("recipeBtn")  .addEventListener("click", openRecipe);
   document.getElementById("doLoginBtn") .addEventListener("click", doLogin);
