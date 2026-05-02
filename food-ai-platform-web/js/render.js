@@ -11,8 +11,10 @@ let currentFilter = "all";
 function getDaysLeft(expiration_date) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const exp = new Date(expiration_date);
-  exp.setHours(0, 0, 0, 0);
+  // "YYYY-MM-DD" 문자열을 연·월·일로 직접 파싱 → 로컬 시간 기준 Date 생성
+  // new Date("YYYY-MM-DD")는 UTC 자정으로 파싱되어 KST에서 날짜 오차 발생
+  const [y, m, d] = expiration_date.split("-").map(Number);
+  const exp = new Date(y, m - 1, d);
   return Math.ceil((exp - today) / 86400000);
 }
 
