@@ -194,12 +194,7 @@ function deleteItem(item_id) {
   showToast("🗑️ 삭제되었습니다");
 }
 
-// ── 레시피 모달 ──────────────────────────────────────────────
 
-function openRecipe() {
-  renderRecipes();
-  openModal("recipeModal");
-}
 
 // ── 토스트 알림 ──────────────────────────────────────────────
 
@@ -208,4 +203,10 @@ function showToast(msg) {
   toast.textContent = msg;
   toast.classList.add("show");
   setTimeout(() => toast.classList.remove("show"), 2500);
+}
+// ── 레시피 모달 ──────────────────────────────────────────────
+
+function openRecipe() {
+  renderRecipes();
+  openModal("recipeModal");
 }

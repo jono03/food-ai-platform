@@ -40,7 +40,8 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ── 초기 렌더링 ────────────────────────────────────────────
-  renderItems();       // 식품 목록
+  renderItems();   
+      // 식품 목록
   renderOnboard();     // 온보딩 설문
 
   // 온보딩 모달 열기
