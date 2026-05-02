@@ -3,6 +3,34 @@
 //  엔티티: USER / FRIDGE_ITEM / USER_RECIPE
 // ============================================================
 
+// ── API BASE URL ─────────────────────────────────────────────
+const BASE_URL = "https://food-ai-platform-api.with-momo.com/api/v1";
+
+// ── storage_location 변환 ────────────────────────────────────
+// 프론트 표시값 → API enum
+const LOCATION_TO_API = {
+  "🧊 냉장" : "REFRIGERATED",
+  "❄️ 냉동" : "FROZEN",
+  "🏠 실온" : "ROOM_TEMP",
+};
+
+// API enum → 프론트 표시값
+const LOCATION_FROM_API = {
+  "REFRIGERATED" : "🧊 냉장",
+  "FROZEN"       : "❄️ 냉동",
+  "ROOM_TEMP"    : "🏠 실온",
+};
+
+/** 프론트 표시값 → API enum 변환 */
+function toApiLocation(frontLabel) {
+  return LOCATION_TO_API[frontLabel] ?? frontLabel;
+}
+
+/** API enum → 프론트 표시값 변환 */
+function fromApiLocation(apiEnum) {
+  return LOCATION_FROM_API[apiEnum] ?? apiEnum;
+}
+
 // ── USER (현재 로그인한 사용자) ──────────────────────────────
 // 실제 서비스에서는 서버에서 받아올 값
 let currentUser = null;
@@ -24,7 +52,7 @@ let fridgeItems = [
     user_id          : 1,
     name             : "바나나",       // 식품명 (UI 편의용)
     quantity         : "3개",
-    storage_location : "🧊 냉장",
+    storage_location : "냉장",
     registered_date  : "2026-04-01",
     expiration_date  : "2026-07-18",
   },
@@ -33,7 +61,7 @@ let fridgeItems = [
     user_id          : 1,
     name             : "달걀",
     quantity         : "3개",
-    storage_location : "🧊 냉장",
+    storage_location : "냉장",
     registered_date  : "2026-04-01",
     expiration_date  : "2026-07-16",
   },
@@ -42,7 +70,7 @@ let fridgeItems = [
     user_id          : 1,
     name             : "대파",
     quantity         : "100g",
-    storage_location : "🧊 냉장",
+    storage_location : "냉장",
     registered_date  : "2026-04-10",
     expiration_date  : "2026-07-15",
   },
@@ -51,7 +79,7 @@ let fridgeItems = [
     user_id          : 1,
     name             : "배추",
     quantity         : "300g",
-    storage_location : "🧊 냉장",
+    storage_location : "냉장",
     registered_date  : "2026-04-10",
     expiration_date  : "2026-07-11",
   },
@@ -60,7 +88,7 @@ let fridgeItems = [
     user_id          : 1,
     name             : "양파",
     quantity         : "300g",
-    storage_location : "🧊 냉장",
+    storage_location : "냉장",
     registered_date  : "2026-04-05",
     expiration_date  : "2026-07-10",
   },
@@ -69,7 +97,7 @@ let fridgeItems = [
     user_id          : 1,
     name             : "소고기",
     quantity         : "200g",
-    storage_location : "❄️ 냉동",
+    storage_location : "냉동",
     registered_date  : "2026-04-01",
     expiration_date  : "2026-07-08",
   },
@@ -78,7 +106,7 @@ let fridgeItems = [
     user_id          : 1,
     name             : "돼지고기",
     quantity         : "300g",
-    storage_location : "❄️ 냉동",
+    storage_location : "냉동",
     registered_date  : "2026-04-01",
     expiration_date  : "2026-07-07",
   },
@@ -87,7 +115,7 @@ let fridgeItems = [
     user_id          : 1,
     name             : "우유",
     quantity         : "500ml",
-    storage_location : "🧊 냉장",
+    storage_location : "냉장",
     registered_date  : "2026-04-20",
     expiration_date  : "2026-07-06",
   },
@@ -96,7 +124,7 @@ let fridgeItems = [
     user_id          : 1,
     name             : "스팸",
     quantity         : "3개",
-    storage_location : "🏠 실온",
+    storage_location : "실온",
     registered_date  : "2026-04-01",
     expiration_date  : "2026-12-31",
   },
