@@ -161,48 +161,46 @@ async function updateSidebar() {
 }
 
 // ── 레시피 모달 렌더링 ───────────────────────────────────────
-function renderRecipes() {
-  // 식품명 앞뒤 공백 및 내부 연속 공백 정규화 후 소문자 변환
-  const normalize = str => str.trim().replace(/\s+/g, " ").toLowerCase();
-  const myItems = fridgeItems.map(i => normalize(i.name));
 
-  const nowList = [];   // 지금 바로 만들 수 있는
-  const buyList = [];   // 재료 조금만 사면 가능
-
-  RECIPE_POOL.forEach(recipe => {
-    const missingNeed = recipe.need.filter(n => !myItems.includes(normalize(n)));
-    const hasAllNeeded = missingNeed.length === 0;
-
-    if (hasAllNeeded && recipe.extra.length === 0) {
-      nowList.push(recipe);
-    } else if (hasAllNeeded && recipe.extra.length > 0) {
-      buyList.push(recipe);
-    } else if (missingNeed.length <= 1) {
-      // need 중 1개만 없어도 buy 목록에 추가 (extra에 missing 포함)
-      buyList.push({ ...recipe, extra: [...recipe.extra, ...missingNeed] });
-    }
-  });
-
-  document.getElementById("cnt-now").textContent = nowList.length + "개";
-  document.getElementById("cnt-buy").textContent = buyList.length + "개";
-
-  const allCards = [
-    ...nowList.map(r => buildRecipeCard(r, false)),
-    ...buyList.map(r => buildRecipeCard(r, true)),
-  ];
-
+/** GET /recipes/recommendations — AI 레시피 추천 */
+async function renderRecipes() {
   const grid = document.getElementById("recipeGrid");
-  grid.innerHTML = allCards.length
-    ? allCards.join("")
-    : `<div class="recipe-empty">
-         <div style="font-size:40px;margin-bottom:12px">🤔</div>
-         <p>냉장고에 식품을 추가하면 레시피를 추천해드려요!</p>
-       </div>`;
+  grid.innerHTML = `<div class="recipe-empty"><p>🤖 AI가 레시피를 추천하는 중...</p></div>`;
+
+  try {
+    const res = await authFetch(`${BASE_URL}/recipes/recommendations`);
+    if (!res.ok) throw new Error();
+
+    const data = await res.json();
+    const nowList = data.available_now        ?? [];
+    const buyList = data.need_few_ingredients ?? [];
+
+    document.getElementById("cnt-now").textContent = nowList.length + "개";
+    document.getElementById("cnt-buy").textContent = buyList.length + "개";
+
+    const allCards = [
+      ...nowList.map(r => buildRecipeCard(r, false)),
+      ...buyList.map(r => buildRecipeCard(r, true)),
+    ];
+
+    grid.innerHTML = allCards.length
+      ? allCards.join("")
+      : `<div class="recipe-empty">
+           <div style="font-size:40px;margin-bottom:12px">🤔</div>
+           <p>냉장고에 식품을 추가하면 레시피를 추천해드려요!</p>
+         </div>`;
+
+  } catch (e) {
+    grid.innerHTML = `<div class="recipe-empty"><p>⚠️ 레시피를 불러올 수 없습니다</p></div>`;
+  }
 }
 
-/** 레시피 카드 HTML 생성 */
+/** 레시피 카드 HTML 생성
+ *  API 응답: { recipe_id, recipe_name, category, all_ingredients,
+ *              missing_ingredients, instructions, expiring_ingredients_used }
+ */
 function buildRecipeCard(recipe, needBuy) {
-  const stepsHtml = recipe.steps
+  const stepsHtml = (recipe.instructions ?? [])
     .map((s, i) => `
       <div class="step-item">
         <div class="step-num">${i + 1}</div>
@@ -210,22 +208,21 @@ function buildRecipeCard(recipe, needBuy) {
       </div>`)
     .join("");
 
-  const buyBox = (needBuy && recipe.extra.length > 0)
+  const buyBox = (needBuy && recipe.missing_ingredients?.length > 0)
     ? `<div class="need-to-buy">
          <div class="label">🛒 구매 필요 재료</div>
          <div class="ingredient-tags">
-           ${recipe.extra.map(e => `<span class="ingredient-tag missing">${e}</span>`).join("")}
+           ${recipe.missing_ingredients.map(e => `<span class="ingredient-tag missing">${e}</span>`).join("")}
          </div>
        </div>`
     : "";
 
-  const allIngr = [...recipe.need, ...recipe.extra];
+  const missing = new Set(recipe.missing_ingredients ?? []);
 
-  // USER_RECIPE 저장 시 사용할 정보를 data 속성으로 넘김
   return `
     <div class="recipe-card">
       <div class="recipe-card-header">
-        <div class="recipe-avatar">${recipe.icon}</div>
+        <div class="recipe-avatar">🍽️</div>
         <div>
           <div class="recipe-name">${recipe.recipe_name}</div>
           <span class="category-tag">${recipe.category}</span>
@@ -235,8 +232,8 @@ function buildRecipeCard(recipe, needBuy) {
       <div>
         <div style="font-size:12px;color:var(--gray-400);margin-bottom:6px;">전체 재료</div>
         <div class="ingredient-tags">
-          ${allIngr
-            .map(e => `<span class="ingredient-tag ${recipe.extra.includes(e) ? "missing" : ""}">${e}</span>`)
+          ${(recipe.all_ingredients ?? [])
+            .map(e => `<span class="ingredient-tag ${missing.has(e) ? "missing" : ""}">${e}</span>`)
             .join("")}
         </div>
       </div>
@@ -246,6 +243,7 @@ function buildRecipeCard(recipe, needBuy) {
       </div>
       <button
         class="select-btn"
+        data-id="${recipe.recipe_id}"
         data-name="${recipe.recipe_name}"
         data-category="${recipe.category}"
         onclick="selectRecipe(this)">
@@ -261,36 +259,43 @@ function toggleSteps(btn) {
   btn.textContent = steps.classList.contains("open") ? "조리법 접기 ▴" : "조리법 보기 ▾";
 }
 
-/** 레시피 선택 → USER_RECIPE에 저장 */
-function selectRecipe(btn) {
-  // 로그인 체크
+/** 레시피 선택 → POST /user-recipes 저장 */
+async function selectRecipe(btn) {
   if (!currentUser) {
     showToast("⚠️ 로그인 후 레시피를 선택할 수 있어요");
     openLogin();
     return;
   }
 
+  const recipe_id   = Number(btn.dataset.id);
   const recipe_name = btn.dataset.name;
   const category    = btn.dataset.category;
 
-  // USER_RECIPE 엔티티에 추가 (실제 서비스: POST /api/user-recipes)
-  userRecipes.push({
-    recipe_id   : nextRecipeId++,
-    user_id     : currentUser.user_id,   // 로그인된 사용자 ID만 사용
-    recipe_name,
-    category,
-  });
+  try {
+    const res = await authFetch(`${BASE_URL}/user-recipes`, {
+      method : "POST",
+      body   : JSON.stringify({ recipe_id, recipe_name, category }),
+    });
 
-  // UI 업데이트
-  document.querySelectorAll(".select-btn").forEach(b => {
-    b.classList.remove("selected");
-    b.textContent = "👍 선택했어요 👍";
-  });
-  btn.classList.add("selected");
-  btn.textContent = "✅ 선택됨!";
+    if (!res.ok) {
+      const err = await res.json();
+      showToast(`⚠️ ${err.message ?? "저장에 실패했습니다"}`);
+      return;
+    }
 
-  showToast(`🍽️ "${recipe_name}" 레시피를 선택했어요!`);
-  console.log("저장된 USER_RECIPE:", userRecipes); // 백엔드 연결 전 확인용
+    // UI 업데이트
+    document.querySelectorAll(".select-btn").forEach(b => {
+      b.classList.remove("selected");
+      b.textContent = "👍 선택했어요 👍";
+    });
+    btn.classList.add("selected");
+    btn.textContent = "✅ 선택됨!";
+
+    showToast(`🍽️ "${recipe_name}" 레시피를 선택했어요!`);
+
+  } catch (e) {
+    showToast("⚠️ 서버에 연결할 수 없습니다");
+  }
 }
 
 // ── 온보딩 렌더링 ────────────────────────────────────────────
