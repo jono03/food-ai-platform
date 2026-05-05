@@ -146,7 +146,13 @@
     </div>
     <div class="form-group">
       <label class="form-label">비밀번호</label>
-      <input class="form-input" type="password" placeholder="••••••••" id="signupPw" />
+      <input class="form-input" type="password" placeholder="••••••••" id="signupPw" oninput="checkPwRules(this.value)" />
+      <ul class="pw-rules" id="pwRules">
+        <li class="pw-rule" id="rule-length">8~20자</li>
+        <li class="pw-rule" id="rule-letter">영문 포함</li>
+        <li class="pw-rule" id="rule-number">숫자 포함</li>
+        <li class="pw-rule" id="rule-special">특수문자 포함</li>
+      </ul>
     </div>
     <button class="btn btn-primary btn-full" id="doSignupBtn">회원가입</button>
     <p class="login-note">이미 계정이 있으신가요? <button class="link-btn" onclick="openLogin()">로그인</button></p>

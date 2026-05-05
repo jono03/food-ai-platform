@@ -117,6 +117,19 @@ function openSignup() {
   openModal("signupModal");
 }
 
+/** 비밀번호 규칙 실시간 체크 */
+function checkPwRules(value) {
+  const rules = {
+    "rule-length"  : value.length >= 8 && value.length <= 20,
+    "rule-letter"  : /[A-Za-z]/.test(value),
+    "rule-number"  : /\d/.test(value),
+    "rule-special" : /[^A-Za-z\d]/.test(value),
+  };
+  Object.entries(rules).forEach(([id, pass]) => {
+    document.getElementById(id)?.classList.toggle("ok", pass);
+  });
+}
+
 async function doSignup() {
   const username = document.getElementById("signupName").value.trim();
   const email    = document.getElementById("signupEmail").value.trim();

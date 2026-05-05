@@ -361,3 +361,30 @@ header {
   text-decoration: underline;
 }
 .link-btn:hover { color: var(--green-dark); }
+
+/* ── 비밀번호 규칙 체크리스트 ──────────────────────────────── */
+.pw-rules {
+  list-style: none;
+  padding: 6px 0 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.pw-rule {
+  font-size: 11px;
+  color: var(--gray-400);
+  padding-left: 14px;
+  position: relative;
+}
+.pw-rule::before {
+  content: "○";
+  position: absolute;
+  left: 0;
+}
+.pw-rule.ok {
+  color: var(--green);
+}
+.pw-rule.ok::before {
+  content: "✓";
+}
