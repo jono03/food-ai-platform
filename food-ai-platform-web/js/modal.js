@@ -23,13 +23,35 @@ function bindOverlayClose() {
   });
 }
 
+// ── JWT 토큰 유틸 ────────────────────────────────────────────
+
+function getToken()        { return sessionStorage.getItem("access_token"); }
+function setToken(token)   { sessionStorage.setItem("access_token", token); }
+function removeToken()     { sessionStorage.removeItem("access_token"); }
+
+/**
+ * 인증이 필요한 API 요청 공통 함수
+ * Authorization 헤더를 자동으로 추가
+ */
+async function authFetch(url, options = {}) {
+  const token = getToken();
+  return fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+      ...(options.headers ?? {}),
+    },
+  });
+}
+
 // ── 로그인 ───────────────────────────────────────────────────
 
 function openLogin() {
   openModal("loginModal");
 }
 
-function doLogin() {
+async function doLogin() {
   const email    = document.getElementById("loginEmail").value.trim();
   const password = document.getElementById("loginPw").value.trim();
 
@@ -38,27 +60,42 @@ function doLogin() {
     return;
   }
 
-  // 실제 서비스: POST /api/auth/login { email, password }
-  // 여기선 임시로 USER 엔티티 구조대로 객체 세팅
-  currentUser = {
-    user_id  : 1,
-    username : email.split("@")[0],
-    email    : email,
-  };
+  try {
+    const res = await fetch(`${BASE_URL}/auth/login`, {
+      method  : "POST",
+      headers : { "Content-Type": "application/json" },
+      body    : JSON.stringify({ email, password }),
+    });
 
-  closeModal("loginModal");
-  showToast("✅ 로그인되었습니다!");
+    if (!res.ok) {
+      const err = await res.json();
+      showToast(`⚠️ ${err.message ?? "로그인에 실패했습니다"}`);
+      return;
+    }
 
-  // 헤더 버튼 상태 업데이트
-  updateAuthButton();
+    const data = await res.json();
+    setToken(data.access_token);
 
-  console.log("로그인된 USER:", currentUser); // 백엔드 연결 전 확인용
+    currentUser = {
+      user_id  : data.user.user_id,
+      username : data.user.username,
+      email    : data.user.email,
+    };
+
+    closeModal("loginModal");
+    showToast("✅ 로그인되었습니다!");
+    updateAuthButton();
+
+  } catch (e) {
+    showToast("⚠️ 서버에 연결할 수 없습니다");
+  }
 }
 
 // ── 로그아웃 ─────────────────────────────────────────────────
 
 function doLogout() {
   currentUser = null;
+  removeToken();
   updateAuthButton();
   showToast("👋 로그아웃되었습니다");
 }
@@ -70,6 +107,45 @@ function updateAuthButton() {
     btn.textContent = `👤 ${currentUser.username} (로그아웃)`;
   } else {
     btn.textContent = "↗ 로그인";
+  }
+}
+
+// ── 회원가입 ─────────────────────────────────────────────────
+
+function openSignup() {
+  closeModal("loginModal");
+  openModal("signupModal");
+}
+
+async function doSignup() {
+  const username = document.getElementById("signupName").value.trim();
+  const email    = document.getElementById("signupEmail").value.trim();
+  const password = document.getElementById("signupPw").value.trim();
+
+  if (!username || !email || !password) {
+    showToast("⚠️ 모든 항목을 입력해주세요");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${BASE_URL}/auth/signup`, {
+      method  : "POST",
+      headers : { "Content-Type": "application/json" },
+      body    : JSON.stringify({ username, email, password }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      showToast(`⚠️ ${err.message ?? "회원가입에 실패했습니다"}`);
+      return;
+    }
+
+    closeModal("signupModal");
+    showToast("✅ 회원가입 완료! 로그인해주세요");
+    openLogin();
+
+  } catch (e) {
+    showToast("⚠️ 서버에 연결할 수 없습니다");
   }
 }
 
@@ -194,7 +270,12 @@ function deleteItem(item_id) {
   showToast("🗑️ 삭제되었습니다");
 }
 
+// ── 레시피 모달 ──────────────────────────────────────────────
 
+function openRecipe() {
+  renderRecipes();
+  openModal("recipeModal");
+}
 
 // ── 토스트 알림 ──────────────────────────────────────────────
 
@@ -203,10 +284,4 @@ function showToast(msg) {
   toast.textContent = msg;
   toast.classList.add("show");
   setTimeout(() => toast.classList.remove("show"), 2500);
-}
-// ── 레시피 모달 ──────────────────────────────────────────────
-
-function openRecipe() {
-  renderRecipes();
-  openModal("recipeModal");
 }
