@@ -36,51 +36,63 @@ function locLabel(loc) {
 }
 
 // ── 식품 목록 렌더링 ─────────────────────────────────────────
-function renderItems() {
+
+/** GET /fridge-items — 검색/필터 조건으로 목록 조회 후 렌더링 */
+async function renderItems() {
   const query = document.getElementById("searchInput").value.trim().toLowerCase();
 
-  // 1) 필터
-  let list = [...fridgeItems];
+  // Query Parameter 구성
+  const params = new URLSearchParams();
+  if (query) params.set("keyword", query);
+  if (currentFilter !== "all") params.set("storage_location", toApiLocation(`🧊 ${currentFilter}`) || toApiLocation(`❄️ ${currentFilter}`) || toApiLocation(`🏠 ${currentFilter}`));
+
+  // 필터 탭 → API enum 직접 매핑
+  const filterToApi = { "냉장": "REFRIGERATED", "냉동": "FROZEN", "실온": "ROOM_TEMP" };
   if (currentFilter !== "all") {
-    list = list.filter(item => locLabel(item.storage_location) === currentFilter);
-  }
-  // 2) 검색
-  if (query) {
-    list = list.filter(item => item.name.toLowerCase().includes(query));
-  }
-  // 3) 유통기한 임박순 정렬
-  list.sort((a, b) => getDaysLeft(a.expiration_date) - getDaysLeft(b.expiration_date));
-
-  const grid = document.getElementById("foodGrid");
-
-  if (list.length === 0) {
-    grid.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">🫙</div>
-        <p>식품이 없습니다. 추가해보세요!</p>
-      </div>`;
-    updateSidebar();
-    return;
+    params.set("storage_location", filterToApi[currentFilter]);
   }
 
-  grid.innerHTML = list.map(item => buildFoodCard(item)).join("");
-  updateSidebar();
+  try {
+    const res = await authFetch(`${BASE_URL}/fridge-items?${params}`);
+    if (!res.ok) throw new Error();
+
+    const list = await res.json();
+    const grid = document.getElementById("foodGrid");
+
+    if (list.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">🫙</div>
+          <p>식품이 없습니다. 추가해보세요!</p>
+        </div>`;
+    } else {
+      grid.innerHTML = list.map(item => buildFoodCard(item)).join("");
+    }
+
+    await updateSidebar();
+
+  } catch (e) {
+    showToast("⚠️ 식품 목록을 불러올 수 없습니다");
+  }
 }
 
-/** 식품 카드 HTML 생성 */
+/** 식품 카드 HTML 생성
+ *  API 응답의 status, d_day, status_text 를 직접 사용
+ *  status: "OK" | "WARNING" | "EXPIRED" → CSS 클래스: ok / expiring / expired
+ */
 function buildFoodCard(item) {
-  const days    = getDaysLeft(item.expiration_date);
-  const status  = getStatus(days);
-  const locText = locLabel(item.storage_location);
+  const statusClass = { OK: "ok", WARNING: "expiring", EXPIRED: "expired" }[item.status] ?? "ok";
+  const locFront    = fromApiLocation(item.storage_location); // "REFRIGERATED" → "🧊 냉장"
+  const locText     = locFront.replace(/[^가-힣]/g, ""); // 이모지 제거 → "냉장"
 
   return `
-    <div class="food-card ${status}">
-      <div class="days-badge ${status}">${formatDays(days)}</div>
+    <div class="food-card ${statusClass}">
+      <div class="days-badge ${statusClass}">${item.status_text}</div>
       <div class="food-info">
         <div class="food-name">${item.name}</div>
         <div class="food-meta">
           <span class="food-qty">${item.quantity}</span>
-          <span class="location-badge loc-${locText}">${item.storage_location}</span>
+          <span class="location-badge loc-${locText}">${locFront}</span>
         </div>
       </div>
       <div class="food-actions">
@@ -91,62 +103,60 @@ function buildFoodCard(item) {
 }
 
 // ── 사이드바 통계 업데이트 ───────────────────────────────────
-function updateSidebar() {
-  const total    = fridgeItems.length;
-  const expired  = fridgeItems.filter(i => getDaysLeft(i.expiration_date) < 0);
-  const expiring = fridgeItems.filter(i => {
-    const d = getDaysLeft(i.expiration_date);
-    return d >= 0 && d <= 3;
-  });
 
-  // 숫자 통계
-  document.getElementById("stat-total").textContent    = total;
-  document.getElementById("stat-expiring").textContent = expiring.length;
-  document.getElementById("stat-expired").textContent  = expired.length;
+/** GET /fridge-items/summary — 사이드바 통계/임박/만료 렌더링 */
+async function updateSidebar() {
+  try {
+    const res = await authFetch(`${BASE_URL}/fridge-items/summary`);
+    if (!res.ok) throw new Error();
 
-  // 보관 위치 바
-  const locCount = { 냉장: 0, 냉동: 0, 실온: 0 };
-  fridgeItems.forEach(i => {
-    const key = locLabel(i.storage_location);
-    if (key in locCount) locCount[key]++;
-  });
-  ["냉장", "냉동", "실온"].forEach(key => {
-    const pct = total ? Math.round((locCount[key] / total) * 100) : 0;
-    document.getElementById("bar-" + key).style.width = pct + "%";
-    document.getElementById("cnt-" + key).textContent = locCount[key];
-  });
+    const data = await res.json();
+    const total = data.total_count;
 
-  // 곧 만료 카드
-  const soonCard = document.getElementById("soon-card");
-  const soonList = document.getElementById("soon-list");
-  if (expiring.length > 0) {
-    soonCard.style.display = "";
-    soonList.innerHTML = expiring.map(i => {
-      const d = getDaysLeft(i.expiration_date);
-      return `
+    // 숫자 통계
+    document.getElementById("stat-total").textContent    = total;
+    document.getElementById("stat-expiring").textContent = data.expiring_soon_count;
+    document.getElementById("stat-expired").textContent  = data.expired_count;
+
+    // 보관 위치 바
+    const locMap = { 냉장: "REFRIGERATED", 냉동: "FROZEN", 실온: "ROOM_TEMP" };
+    ["냉장", "냉동", "실온"].forEach(key => {
+      const count = data.location_stats[locMap[key]] ?? 0;
+      const pct   = total ? Math.round((count / total) * 100) : 0;
+      document.getElementById("bar-" + key).style.width = pct + "%";
+      document.getElementById("cnt-" + key).textContent = count;
+    });
+
+    // 곧 만료 카드
+    const soonCard = document.getElementById("soon-card");
+    const soonList = document.getElementById("soon-list");
+    if (data.expiring_soon_items.length > 0) {
+      soonCard.style.display = "";
+      soonList.innerHTML = data.expiring_soon_items.map(i => `
         <div class="expired-item">
           <span>${i.name}</span>
-          <span class="days" style="color:var(--yellow)">
-            ${d === 0 ? "오늘 만료" : d + "일 남음"}
-          </span>
-        </div>`;
-    }).join("");
-  } else {
-    soonCard.style.display = "none";
-  }
+          <span class="days" style="color:var(--yellow)">${i.status_text}</span>
+        </div>`).join("");
+    } else {
+      soonCard.style.display = "none";
+    }
 
-  // 유통기한 지남 카드
-  const expCard = document.getElementById("expired-card");
-  const expList = document.getElementById("expired-list");
-  if (expired.length > 0) {
-    expCard.style.display = "";
-    expList.innerHTML = expired.map(i => `
-      <div class="expired-item">
-        <span>${i.name}</span>
-        <span class="days">${Math.abs(getDaysLeft(i.expiration_date))}일 지남</span>
-      </div>`).join("");
-  } else {
-    expCard.style.display = "none";
+    // 유통기한 지남 카드
+    const expCard = document.getElementById("expired-card");
+    const expList = document.getElementById("expired-list");
+    if (data.expired_items.length > 0) {
+      expCard.style.display = "";
+      expList.innerHTML = data.expired_items.map(i => `
+        <div class="expired-item">
+          <span>${i.name}</span>
+          <span class="days">${i.status_text}</span>
+        </div>`).join("");
+    } else {
+      expCard.style.display = "none";
+    }
+
+  } catch (e) {
+    showToast("⚠️ 사이드바 통계를 불러올 수 없습니다");
   }
 }
 
