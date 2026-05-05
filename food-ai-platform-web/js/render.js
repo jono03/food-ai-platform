@@ -300,6 +300,21 @@ async function selectRecipe(btn) {
 
 // ── 온보딩 렌더링 ────────────────────────────────────────────
 let onboardStep = 0;
+const onboardSelections = {}; // 단계별 선택값 저장
+
+// 온보딩 선택값 → API enum 변환 맵
+const CUISINE_TO_API = {
+  "🍚 한식" : "KOREAN",
+  "🍜 일식" : "JAPANESE",
+  "🍝 양식" : "WESTERN",
+  "🌮 중식" : "CHINESE",
+};
+const DIFFICULTY_TO_API = {
+  "😊 쉬움"        : { difficulty_preference: "EASY",   quick_meal_preferred: false },
+  "💪 보통"        : { difficulty_preference: "NORMAL", quick_meal_preferred: false },
+  "🔥 어려워도 OK" : { difficulty_preference: "HARD",   quick_meal_preferred: false },
+  "⚡ 간편식 선호" : { difficulty_preference: "EASY",   quick_meal_preferred: true  },
+};
 
 function renderOnboard() {
   const step = ONBOARD_STEPS[onboardStep];
@@ -322,12 +337,43 @@ function toggleOnboard(el) {
   el.classList.toggle("selected");
 }
 
-function onboardNext() {
+async function onboardNext() {
+  // 현재 단계 선택값 저장
+  const selected = [...document.querySelectorAll(".onboard-option.selected")]
+    .map(b => b.textContent);
+  onboardSelections[onboardStep] = selected;
+
   onboardStep++;
   if (onboardStep >= ONBOARD_STEPS.length) {
+    // 마지막 단계 — PUT /users/me/preferences 호출
+    await savePreferences();
     closeModal("onboardModal");
     showToast("설정 완료! 스마트 냉장고에 오신 걸 환영해요 🎉");
     return;
   }
   renderOnboard();
+}
+
+/** 온보딩 결과 → PUT /users/me/preferences */
+async function savePreferences() {
+  // step 0: 좋아하는 음식 종류 (multi)
+  const favorite_cuisines = (onboardSelections[0] ?? [])
+    .map(v => CUISINE_TO_API[v])
+    .filter(Boolean);
+
+  // step 1: 조리 난이도 (single)
+  const diffKey = (onboardSelections[1] ?? [])[0] ?? "";
+  const { difficulty_preference, quick_meal_preferred } =
+    DIFFICULTY_TO_API[diffKey] ?? { difficulty_preference: "NORMAL", quick_meal_preferred: false };
+
+  try {
+    const res = await authFetch(`${BASE_URL}/users/me/preferences`, {
+      method : "PUT",
+      body   : JSON.stringify({ favorite_cuisines, difficulty_preference, quick_meal_preferred }),
+    });
+    if (!res.ok) throw new Error();
+  } catch (e) {
+    // 취향 저장 실패해도 온보딩 진행은 막지 않음
+    console.warn("취향 저장 실패:", e);
+  }
 }
