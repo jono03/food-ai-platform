@@ -201,16 +201,15 @@ function openEditItem(item_id) {
   openModal("itemModal");
 }
 
-function submitItem() {
-  // 로그인 체크 (모달이 열린 상태에서 혹시 로그아웃된 경우 대비)
+async function submitItem() {
   if (!currentUser) {
     showToast("⚠️ 로그인이 필요합니다");
     return;
   }
 
-  const name = document.getElementById("f-name").value.trim().replace(/\s+/g, " ");
+  const name             = document.getElementById("f-name").value.trim().replace(/\s+/g, " ");
   const quantity         = document.getElementById("f-qty").value.trim();
-  const storage_location = document.getElementById("f-loc").value;
+  const storage_location = toApiLocation(document.getElementById("f-loc").value);
   const expiration_date  = document.getElementById("f-exp").value;
 
   if (!name || !quantity || !expiration_date) {
@@ -223,39 +222,45 @@ function submitItem() {
     showToast("⚠️ 유통기한이 오늘 이전입니다. 확인해주세요.");
     return;
   }
-  if (editingItemId !== null) {
-    // ── 수정 (실제 서비스: PUT /api/fridge-items/:item_id) ──
-    const item = fridgeItems.find(i => i.item_id === editingItemId);
-    item.name             = name;
-    item.quantity         = quantity;
-    item.storage_location = storage_location;
-    item.expiration_date  = expiration_date;
 
-    showToast("✅ 식품이 수정되었습니다");
-  } else {
-    // ── 추가 (실제 서비스: POST /api/fridge-items) ──────────
-    // FRIDGE_ITEM 엔티티 구조 그대로 생성
-    const newItem = {
-      item_id          : nextItemId++,
-      user_id          : currentUser.user_id,   // 로그인된 사용자 ID만 사용
-      name,
-      quantity,
-      storage_location,
-      registered_date  : today,
-      expiration_date,
-    };
-    fridgeItems.push(newItem);
+  const body = JSON.stringify({ name, quantity, storage_location, expiration_date });
 
-    showToast("✅ 식품이 추가되었습니다");
-    console.log("추가된 FRIDGE_ITEM:", newItem); // 백엔드 연결 전 확인용
+  try {
+    if (editingItemId !== null) {
+      // ── 수정: PUT /fridge-items/{item_id} ───────────────────
+      const res = await authFetch(`${BASE_URL}/fridge-items/${editingItemId}`, {
+        method : "PUT",
+        body,
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        showToast(`⚠️ ${err.message ?? "수정에 실패했습니다"}`);
+        return;
+      }
+      showToast("✅ 식품이 수정되었습니다");
+    } else {
+      // ── 추가: POST /fridge-items ─────────────────────────────
+      const res = await authFetch(`${BASE_URL}/fridge-items`, {
+        method : "POST",
+        body,
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        showToast(`⚠️ ${err.message ?? "추가에 실패했습니다"}`);
+        return;
+      }
+      showToast("✅ 식품이 추가되었습니다");
+    }
+
+    closeModal("itemModal");
+    await renderItems(); // 서버 최신 데이터로 갱신
+
+  } catch (e) {
+    showToast("⚠️ 서버에 연결할 수 없습니다");
   }
-
-  closeModal("itemModal");
-  renderItems();
 }
 
-function deleteItem(item_id) {
-  // 로그인 체크
+async function deleteItem(item_id) {
   if (!currentUser) {
     showToast("⚠️ 로그인이 필요합니다");
     return;
@@ -263,11 +268,24 @@ function deleteItem(item_id) {
 
   if (!confirm("삭제하시겠습니까?")) return;
 
-  // 실제 서비스: DELETE /api/fridge-items/:item_id
-  fridgeItems = fridgeItems.filter(i => i.item_id !== item_id);
+  try {
+    // ── 삭제: DELETE /fridge-items/{item_id} ────────────────
+    const res = await authFetch(`${BASE_URL}/fridge-items/${item_id}`, {
+      method : "DELETE",
+    });
 
-  renderItems();
-  showToast("🗑️ 삭제되었습니다");
+    if (!res.ok && res.status !== 204) {
+      const err = await res.json();
+      showToast(`⚠️ ${err.message ?? "삭제에 실패했습니다"}`);
+      return;
+    }
+
+    await renderItems(); // 서버 최신 데이터로 갱신
+    showToast("🗑️ 삭제되었습니다");
+
+  } catch (e) {
+    showToast("⚠️ 서버에 연결할 수 없습니다");
+  }
 }
 
 // ── 레시피 모달 ──────────────────────────────────────────────
