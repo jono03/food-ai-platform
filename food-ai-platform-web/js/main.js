@@ -5,16 +5,11 @@
 document.addEventListener("DOMContentLoaded", () => {
 
   // ── 버튼 이벤트 등록 ───────────────────────────────────────
-  document.getElementById("loginBtn").addEventListener("click", () => {
-    if (currentUser) {
-      doLogout();
-    } else {
-      openLogin();
-    }
-  });
+  document.getElementById("loginBtn")   .addEventListener("click", openLogin);
   document.getElementById("addItemBtn") .addEventListener("click", openAddItem);
   document.getElementById("recipeBtn")  .addEventListener("click", openRecipe);
   document.getElementById("doLoginBtn") .addEventListener("click", doLogin);
+  document.getElementById("doSignupBtn").addEventListener("click", doSignup);
   document.getElementById("submitItemBtn").addEventListener("click", submitItem);
   document.getElementById("ob-next-btn").addEventListener("click", onboardNext);
 
@@ -40,8 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ── 초기 렌더링 ────────────────────────────────────────────
-  renderItems();   
-      // 식품 목록
+  renderItems();       // 식품 목록
   renderOnboard();     // 온보딩 설문
 
   // 온보딩 모달 열기

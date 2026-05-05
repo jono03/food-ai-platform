@@ -348,3 +348,16 @@ header {
   .food-grid   { grid-template-columns: 1fr; }
   .recipe-grid { grid-template-columns: 1fr; }
 }
+
+/* ── 텍스트 링크 버튼 ──────────────────────────────────────── */
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--green);
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+.link-btn:hover { color: var(--green-dark); }

@@ -125,7 +125,31 @@
       <input class="form-input" type="password" placeholder="••••••••" id="loginPw" />
     </div>
     <button class="btn btn-primary btn-full" id="doLoginBtn">로그인</button>
-    <p class="login-note">계정이 없으신가요? 관리자에게 문의하세요.</p>
+    <p class="login-note">계정이 없으신가요? <button class="link-btn" onclick="openSignup()">회원가입</button></p>
+  </div>
+</div>
+
+<!-- 모달: 회원가입 -->
+<div class="modal-overlay" id="signupModal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">✏️ 회원가입</div>
+      <button class="close-btn" data-close="signupModal">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">이름</label>
+      <input class="form-input" type="text" placeholder="홍길동" id="signupName" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">이메일</label>
+      <input class="form-input" type="email" placeholder="example@email.com" id="signupEmail" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">비밀번호</label>
+      <input class="form-input" type="password" placeholder="••••••••" id="signupPw" />
+    </div>
+    <button class="btn btn-primary btn-full" id="doSignupBtn">회원가입</button>
+    <p class="login-note">이미 계정이 있으신가요? <button class="link-btn" onclick="openLogin()">로그인</button></p>
   </div>
 </div>
 
@@ -190,4 +214,3 @@
 <script src="js/main.js"></script>
 </body>
 </html>
-
