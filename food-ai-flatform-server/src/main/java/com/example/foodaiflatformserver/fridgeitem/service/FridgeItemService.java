@@ -6,6 +6,8 @@ import com.example.foodaiflatformserver.common.exception.NotFoundException;
 import com.example.foodaiflatformserver.fridgeitem.dto.FridgeItemResponse;
 import com.example.foodaiflatformserver.fridgeitem.dto.FridgeItemSaveRequest;
 import com.example.foodaiflatformserver.fridgeitem.entity.FridgeItem;
+import com.example.foodaiflatformserver.fridgeitem.entity.ItemStatus;
+import com.example.foodaiflatformserver.fridgeitem.entity.StorageLocation;
 import com.example.foodaiflatformserver.fridgeitem.repository.FridgeItemRepository;
 import com.example.foodaiflatformserver.user.entity.User;
 import com.example.foodaiflatformserver.user.repository.UserRepository;
@@ -14,6 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +27,23 @@ public class FridgeItemService {
     private final FridgeItemRepository fridgeItemRepository;
     private final UserRepository userRepository;
     private final FridgeItemStatusCalculator statusCalculator;
+
+    public List<FridgeItemResponse> getItems(
+            UserPrincipal principal,
+            String keyword,
+            StorageLocation storageLocation,
+            ItemStatus status
+    ) {
+        String normalizedKeyword = keyword == null ? null : normalize(keyword).toLowerCase(Locale.ROOT);
+
+        return fridgeItemRepository.findAllByUserIdOrderByExpirationDateAsc(principal.id())
+                .stream()
+                .filter(fridgeItem -> matchesKeyword(fridgeItem, normalizedKeyword))
+                .map(fridgeItem -> FridgeItemResponse.from(fridgeItem, statusCalculator))
+                .filter(response -> matchesStorageLocation(response, storageLocation))
+                .filter(response -> matchesStatus(response, status))
+                .toList();
+    }
 
     @Transactional
     public FridgeItemResponse create(UserPrincipal principal, FridgeItemSaveRequest request) {
@@ -78,5 +99,21 @@ public class FridgeItemService {
 
     private String normalize(String value) {
         return value.trim().replaceAll("\\s+", " ");
+    }
+
+    private boolean matchesKeyword(FridgeItem fridgeItem, String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return true;
+        }
+
+        return fridgeItem.getName().toLowerCase(Locale.ROOT).contains(keyword);
+    }
+
+    private boolean matchesStorageLocation(FridgeItemResponse response, StorageLocation storageLocation) {
+        return storageLocation == null || response.storageLocation().equals(storageLocation.name());
+    }
+
+    private boolean matchesStatus(FridgeItemResponse response, ItemStatus status) {
+        return status == null || response.status().equals(status.name());
     }
 }

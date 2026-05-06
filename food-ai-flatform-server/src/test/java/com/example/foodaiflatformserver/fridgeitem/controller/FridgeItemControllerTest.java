@@ -22,6 +22,7 @@ import java.time.LocalDate;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -52,6 +53,92 @@ class FridgeItemControllerTest {
                 .build();
         fridgeItemRepository.deleteAll();
         userRepository.deleteAll();
+    }
+
+    @DisplayName("로그인 사용자의 식재료 전체 목록을 유통기한 임박순으로 조회한다")
+    @Test
+    void getFridgeItemsOrderedByExpirationDate() throws Exception {
+        String accessToken = signupAndLogin("user@example.com");
+        User user = userRepository.findByEmail("user@example.com").orElseThrow();
+        User otherUser = userRepository.save(User.builder()
+                .username("다른사용자")
+                .email("other@example.com")
+                .password("encoded")
+                .build());
+
+        fridgeItemRepository.save(FridgeItem.builder()
+                .user(user)
+                .name("당근")
+                .quantity("1개")
+                .storageLocation(StorageLocation.REFRIGERATED)
+                .registeredDate(LocalDate.of(2026, 5, 1))
+                .expirationDate(LocalDate.now(FridgeItemStatusCalculator.BUSINESS_ZONE).plusDays(7))
+                .build());
+        fridgeItemRepository.save(FridgeItem.builder()
+                .user(user)
+                .name("대파")
+                .quantity("100g")
+                .storageLocation(StorageLocation.REFRIGERATED)
+                .registeredDate(LocalDate.of(2026, 5, 1))
+                .expirationDate(LocalDate.now(FridgeItemStatusCalculator.BUSINESS_ZONE).plusDays(1))
+                .build());
+        fridgeItemRepository.save(FridgeItem.builder()
+                .user(otherUser)
+                .name("외부데이터")
+                .quantity("1개")
+                .storageLocation(StorageLocation.ROOM_TEMP)
+                .registeredDate(LocalDate.of(2026, 5, 1))
+                .expirationDate(LocalDate.now(FridgeItemStatusCalculator.BUSINESS_ZONE).plusDays(0))
+                .build());
+
+        mockMvc.perform(get("/api/v1/fridge-items")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].name").value("대파"))
+                .andExpect(jsonPath("$[0].status").value("WARNING"))
+                .andExpect(jsonPath("$[0].d_day").value(1))
+                .andExpect(jsonPath("$[1].name").value("당근"));
+    }
+
+    @DisplayName("검색어, 보관 위치, 상태 필터를 조합해서 조회할 수 있다")
+    @Test
+    void getFridgeItemsWithCombinedFilters() throws Exception {
+        String accessToken = signupAndLogin("user@example.com");
+        User user = userRepository.findByEmail("user@example.com").orElseThrow();
+
+        fridgeItemRepository.save(FridgeItem.builder()
+                .user(user)
+                .name("대파")
+                .quantity("100g")
+                .storageLocation(StorageLocation.REFRIGERATED)
+                .expirationDate(LocalDate.now(FridgeItemStatusCalculator.BUSINESS_ZONE).plusDays(2))
+                .build());
+        fridgeItemRepository.save(FridgeItem.builder()
+                .user(user)
+                .name("대패삼겹살")
+                .quantity("300g")
+                .storageLocation(StorageLocation.FROZEN)
+                .expirationDate(LocalDate.now(FridgeItemStatusCalculator.BUSINESS_ZONE).plusDays(10))
+                .build());
+        fridgeItemRepository.save(FridgeItem.builder()
+                .user(user)
+                .name("대추")
+                .quantity("10개")
+                .storageLocation(StorageLocation.REFRIGERATED)
+                .expirationDate(LocalDate.now(FridgeItemStatusCalculator.BUSINESS_ZONE).minusDays(1))
+                .build());
+
+        mockMvc.perform(get("/api/v1/fridge-items")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .queryParam("keyword", "대")
+                        .queryParam("storage_location", "REFRIGERATED")
+                        .queryParam("status", "WARNING"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].name").value("대파"))
+                .andExpect(jsonPath("$[0].storage_location").value("REFRIGERATED"))
+                .andExpect(jsonPath("$[0].status").value("WARNING"));
     }
 
     @DisplayName("식재료 등록에 성공하면 201과 생성된 식재료를 반환한다")
