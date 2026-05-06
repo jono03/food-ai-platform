@@ -79,4 +79,11 @@ public class FridgeItem {
     public void assignUser(User user) {
         this.user = user;
     }
+
+    public void update(String name, String quantity, StorageLocation storageLocation, LocalDate expirationDate) {
+        this.name = name;
+        this.quantity = quantity;
+        this.storageLocation = storageLocation;
+        this.expirationDate = expirationDate;
+    }
 }
