@@ -65,6 +65,23 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.user.email").value("user@example.com"));
     }
 
+    @DisplayName("공개 엔드포인트는 잘못된 토큰이 있어도 요청을 허용한다")
+    @Test
+    void signupIgnoresInvalidToken() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer stale-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "홍길동",
+                                  "email": "user@example.com",
+                                  "password": "Password123!"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.message").value("회원가입이 완료되었습니다."));
+    }
+
     @DisplayName("중복 이메일로 회원가입하면 충돌 오류를 반환한다")
     @Test
     void signupDuplicateEmail() throws Exception {
@@ -161,6 +178,34 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.user_id").isNumber())
                 .andExpect(jsonPath("$.username").value("홍길동"))
                 .andExpect(jsonPath("$.email").value("user@example.com"));
+    }
+
+    @DisplayName("토큰의 사용자 정보가 사라지면 401을 반환한다")
+    @Test
+    void meFailsWhenTokenUserDeleted() throws Exception {
+        signup("user@example.com");
+
+        String loginResponse = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "user@example.com",
+                                  "password": "Password123!"
+                                }
+                                """))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        JsonNode jsonNode = objectMapper.readTree(loginResponse);
+        String accessToken = jsonNode.get("access_token").asText();
+        userRepository.deleteAll();
+
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.message").value("유효하지 않은 토큰입니다."));
     }
 
     private void signup(String email) throws Exception {
