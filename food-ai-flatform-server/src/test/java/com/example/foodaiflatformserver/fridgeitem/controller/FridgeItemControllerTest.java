@@ -81,6 +81,36 @@ class FridgeItemControllerTest {
                 .andExpect(jsonPath("$.status_text").value("D-13"));
     }
 
+    @DisplayName("식재료 등록 시 길이 제한을 넘으면 400을 반환한다")
+    @Test
+    void createFridgeItemRejectsTooLongFields() throws Exception {
+        String accessToken = signupAndLogin("user@example.com");
+        String longName = "가".repeat(101);
+        String longQuantity = "1".repeat(51);
+
+        mockMvc.perform(post("/api/v1/fridge-items")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "%s",
+                                  "quantity": "%s",
+                                  "storage_location": "REFRIGERATED",
+                                  "expiration_date": "%s"
+                                }
+                                """.formatted(
+                                longName,
+                                longQuantity,
+                                LocalDate.now(FridgeItemStatusCalculator.BUSINESS_ZONE).plusDays(13)
+                        )))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.details[0].field").value("name"))
+                .andExpect(jsonPath("$.details[0].reason").value("식품명은 100자 이하여야 합니다."))
+                .andExpect(jsonPath("$.details[1].field").value("quantity"))
+                .andExpect(jsonPath("$.details[1].reason").value("수량은 50자 이하여야 합니다."));
+    }
+
     @DisplayName("본인 식재료 수정에 성공하면 200과 수정된 식재료를 반환한다")
     @Test
     void updateOwnedFridgeItem() throws Exception {

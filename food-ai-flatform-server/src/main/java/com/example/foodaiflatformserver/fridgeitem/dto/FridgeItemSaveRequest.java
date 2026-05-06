@@ -4,16 +4,19 @@ import com.example.foodaiflatformserver.fridgeitem.entity.StorageLocation;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
 public record FridgeItemSaveRequest(
         @JsonProperty("name")
         @NotBlank(message = "식품명은 필수입니다.")
+        @Size(max = 100, message = "식품명은 100자 이하여야 합니다.")
         String name,
 
         @JsonProperty("quantity")
         @NotBlank(message = "수량은 필수입니다.")
+        @Size(max = 50, message = "수량은 50자 이하여야 합니다.")
         String quantity,
 
         @JsonProperty("storage_location")
