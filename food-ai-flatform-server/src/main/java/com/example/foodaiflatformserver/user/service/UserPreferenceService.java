@@ -22,9 +22,10 @@ public class UserPreferenceService {
 
     @Transactional
     public UserPreferenceResponse save(UserPrincipal principal, UserPreferenceSaveRequest request) {
-        User user = userRepository.findById(principal.id())
+        User user = userRepository.findByIdForUpdate(principal.id())
                 .orElseThrow(() -> new NotFoundException("사용자를 찾을 수 없습니다."));
 
+        // Lock the owning user row so first-time preference creation is serialized per user.
         UserPreference preference = userPreferenceRepository.findByUserId(user.getId())
                 .map(existing -> {
                     existing.update(
