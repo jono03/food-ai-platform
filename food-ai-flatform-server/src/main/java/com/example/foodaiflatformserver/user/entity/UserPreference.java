@@ -83,4 +83,15 @@ public class UserPreference {
     public void assignUser(User user) {
         this.user = user;
     }
+
+    public void update(Set<FavoriteCuisine> favoriteCuisines,
+                       DifficultyPreference difficultyPreference,
+                       boolean quickMealPreferred) {
+        this.favoriteCuisines.clear();
+        if (favoriteCuisines != null) {
+            this.favoriteCuisines.addAll(favoriteCuisines);
+        }
+        this.difficultyPreference = difficultyPreference;
+        this.quickMealPreferred = quickMealPreferred;
+    }
 }
