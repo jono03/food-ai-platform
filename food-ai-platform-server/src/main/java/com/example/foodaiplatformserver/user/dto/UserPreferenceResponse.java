@@ -2,6 +2,7 @@ package com.example.foodaiplatformserver.user.dto;
 
 import com.example.foodaiplatformserver.user.entity.DifficultyPreference;
 import com.example.foodaiplatformserver.user.entity.FavoriteCuisine;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
@@ -9,6 +10,7 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import java.time.LocalDateTime;
 import java.util.List;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record UserPreferenceResponse(
         @JsonProperty("user_id")
@@ -18,7 +20,7 @@ public record UserPreferenceResponse(
         @JsonProperty("difficulty_preference")
         DifficultyPreference difficultyPreference,
         @JsonProperty("quick_meal_preferred")
-        boolean quickMealPreferred,
+        Boolean quickMealPreferred,
         @JsonProperty("updated_at")
         LocalDateTime updatedAt
 ) {
