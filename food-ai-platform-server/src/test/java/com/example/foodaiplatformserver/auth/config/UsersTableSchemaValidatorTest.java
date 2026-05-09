@@ -10,38 +10,38 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class UsersTableSchemaValidatorTest {
 
-    @DisplayName("users 테이블이 예전 id PK를 쓰면 명확한 스키마 오류를 반환한다")
+    @DisplayName("users 테이블이 id PK를 쓰면 현재 인증 스키마로 판단한다")
     @Test
-    void returnsHelpfulMessageForLegacyPrimaryKey() {
+    void acceptsCurrentUsersSchema() {
         Optional<String> validationError = UsersTableSchemaValidator.validateUsersTableSchema(
                 Set.of("id", "username", "email", "password"),
                 Set.of("id")
         );
 
-        assertThat(validationError).isPresent();
-        assertThat(validationError.get()).contains("users.user_id PK");
+        assertThat(validationError).isEmpty();
     }
 
-    @DisplayName("users 테이블에 user_id PK가 있으면 정상 스키마로 판단한다")
+    @DisplayName("users 테이블에 id 컬럼이 없으면 오류를 반환한다")
     @Test
-    void acceptsExpectedUsersSchema() {
+    void returnsErrorWhenIdColumnMissing() {
         Optional<String> validationError = UsersTableSchemaValidator.validateUsersTableSchema(
                 Set.of("user_id", "username", "email", "password"),
                 Set.of("user_id")
         );
 
-        assertThat(validationError).isEmpty();
+        assertThat(validationError).isPresent();
+        assertThat(validationError.get()).contains("id 컬럼이 없습니다");
     }
 
-    @DisplayName("user_id 컬럼은 있지만 PK가 아니면 오류를 반환한다")
+    @DisplayName("id 컬럼은 있지만 PK가 아니면 오류를 반환한다")
     @Test
-    void returnsErrorWhenUserIdIsNotPrimaryKey() {
+    void returnsErrorWhenIdIsNotPrimaryKey() {
         Optional<String> validationError = UsersTableSchemaValidator.validateUsersTableSchema(
-                Set.of("user_id", "username", "email", "password"),
+                Set.of("id", "username", "email", "password"),
                 Set.of("email")
         );
 
         assertThat(validationError).isPresent();
-        assertThat(validationError.get()).contains("PK가 user_id가 아닙니다");
+        assertThat(validationError.get()).contains("PK가 id가 아닙니다");
     }
 }
