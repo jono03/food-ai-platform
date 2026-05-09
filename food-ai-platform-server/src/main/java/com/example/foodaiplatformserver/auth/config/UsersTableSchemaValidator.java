@@ -52,19 +52,15 @@ public class UsersTableSchemaValidator implements ApplicationRunner {
         Set<String> normalizedColumns = normalize(columns);
         Set<String> normalizedPrimaryKeys = normalize(primaryKeys);
 
-        if (normalizedPrimaryKeys.contains("id") && !normalizedPrimaryKeys.contains("user_id")) {
+        if (!normalizedColumns.contains("id")) {
+            return Optional.of("users 테이블에 id 컬럼이 없습니다. 현재 엔티티 스키마와 DB 구조를 확인해주세요.");
+        }
+
+        if (!normalizedPrimaryKeys.contains("id")) {
             return Optional.of("""
-                    레거시 users 테이블 스키마가 감지되었습니다. 현재 애플리케이션은 users.user_id PK를 기대하지만, DB에는 기존 id PK가 남아 있습니다.
-                    기존 users 테이블을 정리한 뒤 서버를 다시 띄워 엔티티 기준으로 재생성해주세요.
+                    users 테이블의 PK가 id가 아닙니다. 현재 애플리케이션은 기존 users.id PK 스키마를 기대합니다.
+                    users 테이블을 현재 엔티티 기준으로 다시 확인해주세요.
                     """.strip());
-        }
-
-        if (!normalizedColumns.contains("user_id")) {
-            return Optional.of("users 테이블에 user_id 컬럼이 없습니다. 현재 엔티티 스키마와 DB 구조를 확인해주세요.");
-        }
-
-        if (!normalizedPrimaryKeys.contains("user_id")) {
-            return Optional.of("users 테이블의 PK가 user_id가 아닙니다. 현재 엔티티 스키마와 DB 구조를 확인해주세요.");
         }
 
         return Optional.empty();
