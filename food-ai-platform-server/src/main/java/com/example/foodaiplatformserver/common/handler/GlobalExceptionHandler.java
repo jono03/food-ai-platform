@@ -34,7 +34,7 @@ public class GlobalExceptionHandler {
                 .getFieldErrors()
                 .stream()
                 .sorted(Comparator.comparing(FieldError::getField))
-                .map(fieldError -> new ApiErrorDetail(fieldError.getField(), fieldError.getDefaultMessage()))
+                .map(fieldError -> new ApiErrorDetail(toSnakeCaseField(fieldError.getField()), fieldError.getDefaultMessage()))
                 .toList();
 
         return badRequest(ApiErrorCode.INVALID_REQUEST.getMessage(), details);
@@ -44,7 +44,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleConstraintViolation(ConstraintViolationException exception) {
         List<ApiErrorDetail> details = exception.getConstraintViolations()
                 .stream()
-                .map(violation -> new ApiErrorDetail(violation.getPropertyPath().toString(), violation.getMessage()))
+                .map(violation -> new ApiErrorDetail(toSnakeCaseField(violation.getPropertyPath().toString()), violation.getMessage()))
                 .toList();
 
         return badRequest(ApiErrorCode.INVALID_REQUEST.getMessage(), details);
@@ -71,5 +71,27 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(errorCode.getHttpStatus())
                 .body(ApiErrorResponse.of(errorCode, message, details));
+    }
+
+    private String toSnakeCaseField(String rawField) {
+        String field = rawField;
+        int lastDotIndex = field.lastIndexOf('.');
+        if (lastDotIndex >= 0) {
+            field = field.substring(lastDotIndex + 1);
+        }
+
+        StringBuilder snakeCase = new StringBuilder();
+        for (int index = 0; index < field.length(); index++) {
+            char current = field.charAt(index);
+            if (Character.isUpperCase(current)) {
+                if (!snakeCase.isEmpty()) {
+                    snakeCase.append('_');
+                }
+                snakeCase.append(Character.toLowerCase(current));
+                continue;
+            }
+            snakeCase.append(current);
+        }
+        return snakeCase.toString();
     }
 }

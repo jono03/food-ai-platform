@@ -53,7 +53,7 @@ public class UserPreferenceService {
 
         return userPreferenceRepository.findByUserId(userId)
                 .map(this::toResponse)
-                .orElseThrow(() -> new UserPreferenceNotFoundException(userId));
+                .orElseGet(() -> emptyResponse(userId));
     }
 
     private UserPreferenceResponse toResponse(UserPreference userPreference) {
@@ -63,6 +63,16 @@ public class UserPreferenceService {
                 userPreference.getDifficultyPreference(),
                 userPreference.isQuickMealPreferred(),
                 userPreference.getUpdatedAt()
+        );
+    }
+
+    private UserPreferenceResponse emptyResponse(Long userId) {
+        return new UserPreferenceResponse(
+                userId,
+                List.of(),
+                null,
+                null,
+                null
         );
     }
 

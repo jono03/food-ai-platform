@@ -141,8 +141,23 @@ class UserPreferenceControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
                 .andExpect(jsonPath("$.details", hasSize(2)))
-                .andExpect(jsonPath("$.details[0].field").value("difficultyPreference"))
-                .andExpect(jsonPath("$.details[1].field").value("favoriteCuisines"));
+                .andExpect(jsonPath("$.details[0].field").value("difficulty_preference"))
+                .andExpect(jsonPath("$.details[1].field").value("favorite_cuisines"));
+    }
+
+    @DisplayName("선호 정보를 저장하지 않은 사용자도 빈 응답으로 조회할 수 있다")
+    @Test
+    void returnsEmptyPreferenceWhenPreferenceDoesNotExist() throws Exception {
+        AuthSession authSession = signupAndLogin();
+
+        mockMvc.perform(get("/users/me/preferences")
+                        .header("Authorization", "Bearer " + authSession.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.user_id").value(authSession.userId()))
+                .andExpect(jsonPath("$.favorite_cuisines", hasSize(0)))
+                .andExpect(jsonPath("$.difficulty_preference").doesNotExist())
+                .andExpect(jsonPath("$.quick_meal_preferred").doesNotExist())
+                .andExpect(jsonPath("$.updated_at").doesNotExist());
     }
 
     @DisplayName("토큰 없이 선호 조회를 호출하면 인증 에러를 반환한다")

@@ -142,7 +142,7 @@ class UserRecipeControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
                 .andExpect(jsonPath("$.details[*].field", hasItem("category")))
-                .andExpect(jsonPath("$.details[*].field", hasItem("recipeName")));
+                .andExpect(jsonPath("$.details[*].field", hasItem("recipe_name")));
     }
 
     private void createHistory(String accessToken, int recipeId, String recipeName, String category) throws Exception {
