@@ -115,7 +115,9 @@ jobs:
               --username "${{ secrets.DOCKER_USERNAME }}" \
               --password-stdin
 
-            sudo docker network create "$NETWORK_NAME" || true
+            if ! sudo docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
+              sudo docker network create "$NETWORK_NAME"
+            fi
             sudo docker volume create food-ai-platform-mysql-data || true
             sudo docker pull "$DB_IMAGE"
             sudo docker pull "$APP_IMAGE"
@@ -146,6 +148,14 @@ jobs:
 
             sudo docker stop "$CONTAINER_NAME" || true
             sudo docker rm "$CONTAINER_NAME" || true
+
+            CONFLICTING_CONTAINERS=$(sudo docker ps -a --filter "publish=$APP_PORT" --format '{{.Names}}' | grep -vx "$DB_CONTAINER" | grep -vx "$CONTAINER_NAME" || true)
+            if [ -n "$CONFLICTING_CONTAINERS" ]; then
+              echo "Removing containers using port $APP_PORT:"
+              echo "$CONFLICTING_CONTAINERS"
+              echo "$CONFLICTING_CONTAINERS" | xargs -r sudo docker stop
+              echo "$CONFLICTING_CONTAINERS" | xargs -r sudo docker rm
+            fi
 
             sudo docker run -d \
               --name "$CONTAINER_NAME" \
