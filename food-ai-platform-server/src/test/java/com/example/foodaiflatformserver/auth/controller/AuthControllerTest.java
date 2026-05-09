@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.context.WebApplicationContext;
 
+import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -139,5 +140,26 @@ class AuthControllerTest {
                                 """))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @DisplayName("회원가입 요청의 문자열 길이가 컬럼 상한을 넘으면 검증 에러를 반환한다")
+    @Test
+    void returnsBadRequestForTooLongSignupFields() throws Exception {
+        String longUsername = "가".repeat(101);
+        String longEmailLocal = "a".repeat(244);
+
+        mockMvc.perform(post("/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "%s",
+                                  "email": "%s@example.com",
+                                  "password": "password123!"
+                                }
+                                """.formatted(longUsername, longEmailLocal)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.details[*].field", hasItem("email")))
+                .andExpect(jsonPath("$.details[*].field", hasItem("username")));
     }
 }

@@ -11,7 +11,9 @@ import com.example.foodaiflatformserver.auth.exception.DuplicateEmailException;
 import com.example.foodaiflatformserver.auth.exception.UserAccountNotFoundException;
 import com.example.foodaiflatformserver.auth.repository.UserAccountRepository;
 import com.example.foodaiflatformserver.auth.security.JwtTokenProvider;
+import com.example.foodaiflatformserver.common.support.KeyedLockExecutor;
 import com.example.foodaiflatformserver.user.service.CurrentUserProvider;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,30 +24,39 @@ public class AuthService {
     private final UserAccountRepository userAccountRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final CurrentUserProvider currentUserProvider;
+    private final KeyedLockExecutor keyedLockExecutor;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public AuthService(UserAccountRepository userAccountRepository,
                        JwtTokenProvider jwtTokenProvider,
-                       CurrentUserProvider currentUserProvider) {
+                       CurrentUserProvider currentUserProvider,
+                       KeyedLockExecutor keyedLockExecutor) {
         this.userAccountRepository = userAccountRepository;
         this.jwtTokenProvider = jwtTokenProvider;
         this.currentUserProvider = currentUserProvider;
+        this.keyedLockExecutor = keyedLockExecutor;
     }
 
     @Transactional
     public AuthSignupResponse signup(AuthSignupRequest request) {
-        if (userAccountRepository.existsByEmail(request.email())) {
-            throw new DuplicateEmailException(request.email());
-        }
+        return keyedLockExecutor.execute("signup:" + request.email(), () -> {
+            if (userAccountRepository.existsByEmail(request.email())) {
+                throw new DuplicateEmailException(request.email());
+            }
 
-        UserAccount userAccount = new UserAccount(
-                request.username(),
-                request.email(),
-                passwordEncoder.encode(request.password())
-        );
-        UserAccount saved = userAccountRepository.save(userAccount);
+            UserAccount userAccount = new UserAccount(
+                    request.username(),
+                    request.email(),
+                    passwordEncoder.encode(request.password())
+            );
 
-        return new AuthSignupResponse("회원가입이 완료되었습니다.", toUserResponse(saved));
+            try {
+                UserAccount saved = userAccountRepository.saveAndFlush(userAccount);
+                return new AuthSignupResponse("회원가입이 완료되었습니다.", toUserResponse(saved));
+            } catch (DataIntegrityViolationException exception) {
+                throw new DuplicateEmailException(request.email());
+            }
+        });
     }
 
     @Transactional(readOnly = true)

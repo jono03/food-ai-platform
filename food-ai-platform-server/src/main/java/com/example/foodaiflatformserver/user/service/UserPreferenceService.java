@@ -7,8 +7,11 @@ import com.example.foodaiflatformserver.user.entity.FavoriteCuisine;
 import com.example.foodaiflatformserver.user.entity.UserPreference;
 import com.example.foodaiflatformserver.user.exception.UserPreferenceNotFoundException;
 import com.example.foodaiflatformserver.user.repository.UserPreferenceRepository;
+import com.example.foodaiflatformserver.common.support.KeyedLockExecutor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,13 +21,19 @@ public class UserPreferenceService {
 
     private final UserPreferenceRepository userPreferenceRepository;
     private final CurrentUserProvider currentUserProvider;
+    private final KeyedLockExecutor keyedLockExecutor;
+    private final TransactionTemplate transactionTemplate;
 
-    public UserPreferenceService(UserPreferenceRepository userPreferenceRepository, CurrentUserProvider currentUserProvider) {
+    public UserPreferenceService(UserPreferenceRepository userPreferenceRepository,
+                                 CurrentUserProvider currentUserProvider,
+                                 KeyedLockExecutor keyedLockExecutor,
+                                 TransactionTemplate transactionTemplate) {
         this.userPreferenceRepository = userPreferenceRepository;
         this.currentUserProvider = currentUserProvider;
+        this.keyedLockExecutor = keyedLockExecutor;
+        this.transactionTemplate = transactionTemplate;
     }
 
-    @Transactional
     public UserPreferenceResponse upsert(UserPreferenceUpsertRequest request) {
         Long userId = currentUserProvider.getCurrentUserId();
         LocalDateTime updatedAt = LocalDateTime.now();
@@ -33,21 +42,9 @@ public class UserPreferenceService {
                 .toList();
         DifficultyPreference difficultyPreference = DifficultyPreference.valueOf(request.difficultyPreference());
 
-        UserPreference userPreference = userPreferenceRepository.findByUserId(userId)
-                .map(existing -> {
-                    existing.update(favoriteCuisines, difficultyPreference, request.quickMealPreferred(), updatedAt);
-                    return existing;
-                })
-                .orElseGet(() -> new UserPreference(
-                        userId,
-                        favoriteCuisines,
-                        difficultyPreference,
-                        request.quickMealPreferred(),
-                        updatedAt
-                ));
-
-        UserPreference saved = userPreferenceRepository.save(userPreference);
-        return toResponse(saved);
+        return keyedLockExecutor.execute("preference:" + userId, () ->
+                upsertInternal(userId, favoriteCuisines, difficultyPreference, request.quickMealPreferred(), updatedAt)
+        );
     }
 
     @Transactional(readOnly = true)
@@ -67,5 +64,49 @@ public class UserPreferenceService {
                 userPreference.isQuickMealPreferred(),
                 userPreference.getUpdatedAt()
         );
+    }
+
+    private UserPreferenceResponse upsertInternal(Long userId,
+                                                  List<FavoriteCuisine> favoriteCuisines,
+                                                  DifficultyPreference difficultyPreference,
+                                                  boolean quickMealPreferred,
+                                                  LocalDateTime updatedAt) {
+        return userPreferenceRepository.findByUserId(userId)
+                .map(existing -> saveUpdated(userId, favoriteCuisines, difficultyPreference, quickMealPreferred, updatedAt))
+                .orElseGet(() -> createOrRecover(userId, favoriteCuisines, difficultyPreference, quickMealPreferred, updatedAt));
+    }
+
+    private UserPreferenceResponse saveUpdated(Long userId,
+                                               List<FavoriteCuisine> favoriteCuisines,
+                                               DifficultyPreference difficultyPreference,
+                                               boolean quickMealPreferred,
+                                               LocalDateTime updatedAt) {
+        return transactionTemplate.execute(status -> {
+            UserPreference existing = userPreferenceRepository.findByUserId(userId)
+                    .orElseThrow(() -> new UserPreferenceNotFoundException(userId));
+            existing.update(favoriteCuisines, difficultyPreference, quickMealPreferred, updatedAt);
+            return toResponse(userPreferenceRepository.save(existing));
+        });
+    }
+
+    private UserPreferenceResponse createOrRecover(Long userId,
+                                                   List<FavoriteCuisine> favoriteCuisines,
+                                                   DifficultyPreference difficultyPreference,
+                                                   boolean quickMealPreferred,
+                                                   LocalDateTime updatedAt) {
+        try {
+            return transactionTemplate.execute(status -> {
+                UserPreference created = new UserPreference(
+                        userId,
+                        favoriteCuisines,
+                        difficultyPreference,
+                        quickMealPreferred,
+                        updatedAt
+                );
+                return toResponse(userPreferenceRepository.saveAndFlush(created));
+            });
+        } catch (DataIntegrityViolationException exception) {
+            return saveUpdated(userId, favoriteCuisines, difficultyPreference, quickMealPreferred, updatedAt);
+        }
     }
 }
