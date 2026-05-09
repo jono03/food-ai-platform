@@ -54,7 +54,10 @@ public class AuthService {
                 UserAccount saved = userAccountRepository.saveAndFlush(userAccount);
                 return new AuthSignupResponse("회원가입이 완료되었습니다.", toUserResponse(saved));
             } catch (DataIntegrityViolationException exception) {
-                throw new DuplicateEmailException(request.email());
+                if (userAccountRepository.existsByEmail(request.email())) {
+                    throw new DuplicateEmailException(request.email());
+                }
+                throw exception;
             }
         });
     }
