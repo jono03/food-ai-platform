@@ -16,20 +16,32 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppC
 @SpringBootTest
 class CorsIntegrationTest {
 
+    private static final String PREFERENCES_ENDPOINT = "/users/me/preferences";
+
     @Autowired
     private WebApplicationContext webApplicationContext;
 
     @DisplayName("프론트 origin의 preflight 요청은 인증 없이 허용된다")
     @Test
     void allowsPreflightFromFrontendOrigin() throws Exception {
+        assertPreflightAllowed("http://localhost:5500");
+    }
+
+    @DisplayName("127.0.0.1 origin의 preflight 요청은 인증 없이 허용된다")
+    @Test
+    void allowsPreflightFromLoopbackOrigin() throws Exception {
+        assertPreflightAllowed("http://127.0.0.1:5500");
+    }
+
+    private void assertPreflightAllowed(String origin) throws Exception {
         MockMvc mockMvc = webAppContextSetup(webApplicationContext).build();
 
-        mockMvc.perform(options("/users/me/preferences")
-                        .header(HttpHeaders.ORIGIN, "http://localhost:5500")
+        mockMvc.perform(options(PREFERENCES_ENDPOINT)
+                        .header(HttpHeaders.ORIGIN, origin)
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "PUT")
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "Authorization, Content-Type"))
                 .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5500"))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, origin))
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"));
     }
 }
