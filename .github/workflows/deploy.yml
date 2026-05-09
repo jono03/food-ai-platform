@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - food-ai-flatform-server/**
+      - food-ai-platform-server/**
       - .github/workflows/deploy.yml
   workflow_dispatch:
 
@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: food-ai-flatform-server
+        working-directory: food-ai-platform-server
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,10 +48,10 @@ jobs:
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v6
         with:
-          context: ./food-ai-flatform-server
-          file: food-ai-flatform-server/Dockerfile
+          context: ./food-ai-platform-server
+          file: food-ai-platform-server/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/food-ai-flatform-server:main
+          tags: ${{ secrets.DOCKER_USERNAME }}/food-ai-platform-server:main
           platforms: linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -70,13 +70,13 @@ jobs:
           script: |
             set -e
 
-            APP_IMAGE=${{ secrets.DOCKER_USERNAME }}/food-ai-flatform-server:main
+            APP_IMAGE=${{ secrets.DOCKER_USERNAME }}/food-ai-platform-server:main
             APP_DIR="${{ secrets.APP_DIR }}"
             APP_DIR=${APP_DIR:-/home/${{ secrets.OCI_USERNAME }}/food-ai-platform}
             ENV_FILE="$APP_DIR/.env"
             NETWORK_NAME=food-ai-platform
             DB_CONTAINER=food-ai-platform-mysql
-            CONTAINER_NAME=food-ai-flatform-server
+            CONTAINER_NAME=food-ai-platform-server
             DB_IMAGE=mysql:8.4
             APP_PORT=8080
 

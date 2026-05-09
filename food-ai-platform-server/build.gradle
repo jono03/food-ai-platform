@@ -6,7 +6,7 @@ plugins {
 
 group = 'com.example'
 version = '0.0.1-SNAPSHOT'
-description = 'food-ai-flatform-server'
+description = 'food-ai-platform-server'
 
 java {
     toolchain {
