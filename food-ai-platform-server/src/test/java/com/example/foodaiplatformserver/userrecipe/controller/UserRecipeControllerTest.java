@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.context.WebApplicationContext;
 
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -119,6 +120,29 @@ class UserRecipeControllerTest {
                         .param("limit", "0"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @DisplayName("레시피 이름이나 카테고리가 너무 길면 검증 에러를 반환한다")
+    @Test
+    void returnsValidationErrorForTooLongFields() throws Exception {
+        AuthSession user = signupAndLogin("user1@example.com");
+        String longRecipeName = "가".repeat(256);
+        String longCategory = "나".repeat(101);
+
+        mockMvc.perform(post("/user-recipes")
+                        .header("Authorization", "Bearer " + user.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "recipe_id": 101,
+                                  "recipe_name": "%s",
+                                  "category": "%s"
+                                }
+                                """.formatted(longRecipeName, longCategory)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.details[*].field", hasItem("category")))
+                .andExpect(jsonPath("$.details[*].field", hasItem("recipeName")));
     }
 
     private void createHistory(String accessToken, int recipeId, String recipeName, String category) throws Exception {
