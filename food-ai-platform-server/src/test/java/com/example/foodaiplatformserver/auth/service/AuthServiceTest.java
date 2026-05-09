@@ -31,12 +31,25 @@ class AuthServiceTest {
     @Test
     void convertsDuplicateEmailConstraintToConflict() {
         AuthSignupRequest request = new AuthSignupRequest("홍길동", "user@example.com", "password123!");
-        when(userAccountRepository.existsByEmail(request.email())).thenReturn(false);
+        when(userAccountRepository.existsByEmail(request.email())).thenReturn(false, true);
         when(userAccountRepository.saveAndFlush(any()))
                 .thenThrow(new DataIntegrityViolationException("duplicate email"));
 
         assertThatThrownBy(() -> authService.signup(request))
                 .isInstanceOf(DuplicateEmailException.class)
                 .hasMessageContaining("이미 가입된 이메일입니다.");
+    }
+
+    @DisplayName("중복 이메일이 아닌 저장 오류는 그대로 전파한다")
+    @Test
+    void rethrowsNonDuplicateDataIntegrityViolation() {
+        AuthSignupRequest request = new AuthSignupRequest("홍길동", "user@example.com", "password123!");
+        DataIntegrityViolationException exception = new DataIntegrityViolationException("schema mismatch");
+
+        when(userAccountRepository.existsByEmail(request.email())).thenReturn(false, false);
+        when(userAccountRepository.saveAndFlush(any())).thenThrow(exception);
+
+        assertThatThrownBy(() -> authService.signup(request))
+                .isSameAs(exception);
     }
 }
