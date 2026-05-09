@@ -8,4 +8,6 @@ import java.util.List;
 public interface FridgeItemRepository extends JpaRepository<FridgeItem, Long> {
 
     List<FridgeItem> findAllByUserId(Long userId);
+
+    List<FridgeItem> findAllByUserIdOrderByExpirationDateAscIdAsc(Long userId);
 }
