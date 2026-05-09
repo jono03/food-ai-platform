@@ -145,18 +145,23 @@ public class GeminiRecipeRecommendationEngine implements RecipeRecommendationEng
                 9. 스펙에 없는 필드는 절대 추가하지 마라.
                 10. category는 반드시 한국어 문자열 예: "한식", "중식", "일식", "양식" 으로 반환한다.
                 11. recipe_id는 반드시 숫자로 반환한다.
-                12. instructions는 최소 3개 이상의 조리 단계 문자열을 넣는다. 정말 불가능한 경우에도 빈 배열이 아니라 가능한 단계 배열을 구성한다.
+                12. recipe_name은 비어 있으면 안 된다.
+                13. instructions는 최소 3개 이상의 조리 단계 문자열을 넣는다. 정말 불가능한 경우에도 빈 배열이 아니라 가능한 단계 배열을 구성한다.
+                14. expiring_ingredients_used와 missing_ingredients의 원소는 반드시 all_ingredients 안에 포함되어야 한다.
+                15. available_now의 각 레시피는 missing_ingredients가 정확히 [] 이어야 한다.
 
                 분류 규칙:
                 - available_now: 현재 보유 식재료만으로 만들 수 있는 레시피만 넣는다. missing_ingredients는 반드시 [] 여야 한다.
                 - need_few_ingredients: 1개 또는 2개의 재료만 추가 구매하면 만들 수 있는 레시피만 넣는다.
                 - 3개 이상 재료가 부족한 레시피는 추천하지 마라.
                 - 두 배열에 같은 레시피를 중복으로 넣지 마라.
+                - 한 배열 내부에서도 같은 recipe_id를 중복으로 넣지 마라.
                 - 현재 식재료와 사용자 취향을 최대한 반영하라.
                 - 유통기한 임박 재료를 우선 활용하라.
                 - expiring_ingredients_used에는 실제로 그 레시피에 사용되며, 현재 식재료 중 유통기한이 임박한 재료만 넣어라.
                 - all_ingredients에는 레시피 전체 재료를 넣어라.
                 - missing_ingredients에는 현재 없는 재료만 넣어라.
+                - all_ingredients, missing_ingredients, expiring_ingredients_used에는 수량, 괄호 설명, 추가 문장을 붙이지 말고 재료명만 넣어라.
 
                 응답 형식 예시:
                 {
