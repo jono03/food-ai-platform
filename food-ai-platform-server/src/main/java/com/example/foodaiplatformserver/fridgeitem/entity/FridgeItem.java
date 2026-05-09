@@ -61,6 +61,16 @@ public class FridgeItem {
         this.expirationDate = expirationDate;
     }
 
+    public void update(String name,
+                       String quantity,
+                       StorageLocation storageLocation,
+                       LocalDate expirationDate) {
+        this.name = name;
+        this.quantity = quantity;
+        this.storageLocation = storageLocation;
+        this.expirationDate = expirationDate;
+    }
+
     public Long getId() {
         return id;
     }
