@@ -12,6 +12,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component("mockRecipeRecommendationEngine")
 public class MockRecipeRecommendationEngine implements RecipeRecommendationEngine {
@@ -24,21 +25,23 @@ public class MockRecipeRecommendationEngine implements RecipeRecommendationEngin
     public RecipeRecommendationResult recommend(RecipeRecommendationCriteria criteria) {
         Set<String> availableIngredients = criteria.fridgeItems().stream()
                 .map(FridgeItem::getName)
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+                .collect(Collectors.toCollection(LinkedHashSet::new));
 
         Set<String> expiringIngredients = criteria.fridgeItems().stream()
                 .filter(item -> fridgeItemStatusCalculator.calculateDDay(item.getExpirationDate()) <= 3)
                 .map(FridgeItem::getName)
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+                .collect(Collectors.toCollection(LinkedHashSet::new));
 
         Optional<UserPreference> userPreference = criteria.userPreference();
 
         List<RecommendedRecipe> matchedRecipes = recipeCatalog().stream()
-                .filter(recipe -> matchesPreference(recipe, userPreference))
                 .map(recipe -> evaluateRecipe(recipe, availableIngredients, expiringIngredients))
                 .filter(EvaluatedRecipe::isRecommendable)
-                .sorted(Comparator
-                        .comparingInt(EvaluatedRecipe::expiringIngredientCount).reversed()
+                .sorted(Comparator.<EvaluatedRecipe>comparingInt(
+                                evaluatedRecipe -> preferenceScore(evaluatedRecipe.catalogRecipe(), userPreference)
+                        ).reversed()
+                        .thenComparing(Comparator.comparingInt(EvaluatedRecipe::expiringIngredientCount).reversed())
+                        .thenComparingInt(EvaluatedRecipe::availableIngredientCount).reversed()
                         .thenComparingInt(EvaluatedRecipe::missingIngredientCount)
                         .thenComparing(evaluatedRecipe -> evaluatedRecipe.recipe().recipeId()))
                 .map(EvaluatedRecipe::recipe)
@@ -55,18 +58,27 @@ public class MockRecipeRecommendationEngine implements RecipeRecommendationEngin
         return new RecipeRecommendationResult(availableNow, needFewIngredients);
     }
 
-    private boolean matchesPreference(RecipeCatalogRecipe recipe, Optional<UserPreference> userPreference) {
+    private int preferenceScore(RecipeCatalogRecipe recipe, Optional<UserPreference> userPreference) {
         if (userPreference.isEmpty()) {
-            return true;
+            return 0;
         }
 
         UserPreference preference = userPreference.get();
-        boolean cuisineMatched = preference.getFavoriteCuisines().isEmpty()
-                || preference.getFavoriteCuisines().contains(recipe.favoriteCuisine());
-        boolean difficultyMatched = preference.getDifficultyPreference() == recipe.difficultyPreference();
-        boolean quickMealMatched = !preference.isQuickMealPreferred() || recipe.quickMeal();
+        int score = 0;
 
-        return cuisineMatched && difficultyMatched && quickMealMatched;
+        if (!preference.getFavoriteCuisines().isEmpty() && preference.getFavoriteCuisines().contains(recipe.favoriteCuisine())) {
+            score += 3;
+        }
+
+        if (preference.getDifficultyPreference() == recipe.difficultyPreference()) {
+            score += 2;
+        }
+
+        if (preference.isQuickMealPreferred() && recipe.quickMeal()) {
+            score += 1;
+        }
+
+        return score;
     }
 
     private EvaluatedRecipe evaluateRecipe(RecipeCatalogRecipe recipe,
@@ -80,8 +92,9 @@ public class MockRecipeRecommendationEngine implements RecipeRecommendationEngin
                 .filter(expiringIngredients::contains)
                 .toList();
 
+        int availableIngredientCount = recipe.allIngredients().size() - missingIngredients.size();
         boolean recommendable = missingIngredients.size() <= FEW_INGREDIENTS_THRESHOLD
-                && !expiringIngredientsUsed.isEmpty();
+                && availableIngredientCount > 0;
 
         RecommendedRecipe recommendedRecipe = new RecommendedRecipe(
                 recipe.recipeId(),
@@ -93,7 +106,7 @@ public class MockRecipeRecommendationEngine implements RecipeRecommendationEngin
                 recipe.instructions()
         );
 
-        return new EvaluatedRecipe(recommendedRecipe, recommendable);
+        return new EvaluatedRecipe(recommendedRecipe, recommendable, recipe, availableIngredientCount);
     }
 
     private List<RecipeCatalogRecipe> recipeCatalog() {
@@ -174,7 +187,9 @@ public class MockRecipeRecommendationEngine implements RecipeRecommendationEngin
 
     private record EvaluatedRecipe(
             RecommendedRecipe recipe,
-            boolean recommendable
+            boolean recommendable,
+            RecipeCatalogRecipe catalogRecipe,
+            int availableIngredientCount
     ) {
         int expiringIngredientCount() {
             return recipe.expiringIngredientsUsed().size();

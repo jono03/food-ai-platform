@@ -17,13 +17,25 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.StreamSupport;
 
 @Component("geminiRecipeRecommendationEngine")
 public class GeminiRecipeRecommendationEngine implements RecipeRecommendationEngine {
 
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(20);
+    private static final Set<String> RECIPE_FIELDS = Set.of(
+            "recipe_id",
+            "recipe_name",
+            "category",
+            "expiring_ingredients_used",
+            "all_ingredients",
+            "missing_ingredients",
+            "instructions"
+    );
 
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
@@ -213,7 +225,7 @@ public class GeminiRecipeRecommendationEngine implements RecipeRecommendationEng
         );
     }
 
-    private RecipeRecommendationResult parseRecommendationResult(String responseBody) {
+    RecipeRecommendationResult parseRecommendationResult(String responseBody) {
         try {
             JsonNode root = objectMapper.readTree(responseBody);
             JsonNode textNode = root.path("candidates").path(0).path("content").path("parts").path(0).path("text");
@@ -222,45 +234,142 @@ public class GeminiRecipeRecommendationEngine implements RecipeRecommendationEng
             }
 
             JsonNode json = objectMapper.readTree(textNode.asText());
+            validateTopLevelResponse(json);
+
+            List<RecommendedRecipe> availableNow = parseRecipes(json.path("available_now"), RecommendationBucket.AVAILABLE_NOW);
+            List<RecommendedRecipe> needFewIngredients = parseRecipes(json.path("need_few_ingredients"), RecommendationBucket.NEED_FEW_INGREDIENTS);
+            validateDuplicateRecipeIds(availableNow, needFewIngredients);
+
             return new RecipeRecommendationResult(
-                    parseRecipes(json.path("available_now")),
-                    parseRecipes(json.path("need_few_ingredients"))
+                    availableNow,
+                    needFewIngredients
             );
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         }
     }
 
-    private List<RecommendedRecipe> parseRecipes(JsonNode itemsNode) {
+    private void validateTopLevelResponse(JsonNode json) {
+        if (!json.isObject()) {
+            throw new IllegalStateException("Gemini response JSON must be an object.");
+        }
+        if (!json.has("available_now") || !json.has("need_few_ingredients")) {
+            throw new IllegalStateException("Gemini response JSON is missing required top-level fields.");
+        }
+        if (json.size() != 2) {
+            throw new IllegalStateException("Gemini response JSON contains unsupported top-level fields.");
+        }
+        if (!json.path("available_now").isArray() || !json.path("need_few_ingredients").isArray()) {
+            throw new IllegalStateException("Gemini response top-level fields must be arrays.");
+        }
+    }
+
+    private List<RecommendedRecipe> parseRecipes(JsonNode itemsNode, RecommendationBucket bucket) {
         if (!itemsNode.isArray()) {
-            return List.of();
+            throw new IllegalStateException("Gemini response recipe bucket must be an array.");
         }
 
-        return java.util.stream.StreamSupport.stream(itemsNode.spliterator(), false)
-                .map(this::parseRecipe)
+        return StreamSupport.stream(itemsNode.spliterator(), false)
+                .map(node -> parseRecipe(node, bucket))
                 .toList();
     }
 
-    private RecommendedRecipe parseRecipe(JsonNode node) {
-        return new RecommendedRecipe(
-                node.path("recipe_id").asLong(),
-                node.path("recipe_name").asText(""),
-                node.path("category").asText(""),
-                toStringList(node.path("expiring_ingredients_used")),
-                toStringList(node.path("all_ingredients")),
-                toStringList(node.path("missing_ingredients")),
-                toStringList(node.path("instructions"))
+    private RecommendedRecipe parseRecipe(JsonNode node, RecommendationBucket bucket) {
+        validateRecipeShape(node);
+
+        RecommendedRecipe recipe = new RecommendedRecipe(
+                node.get("recipe_id").asLong(),
+                node.get("recipe_name").asText(),
+                node.get("category").asText(),
+                toStringList(node.get("expiring_ingredients_used")),
+                toStringList(node.get("all_ingredients")),
+                toStringList(node.get("missing_ingredients")),
+                toStringList(node.get("instructions"))
         );
+
+        validateRecipeValues(recipe, bucket);
+        return recipe;
+    }
+
+    private void validateRecipeShape(JsonNode node) {
+        if (!node.isObject()) {
+            throw new IllegalStateException("Gemini recipe item must be an object.");
+        }
+
+        Set<String> actualFields = new LinkedHashSet<>();
+        node.fieldNames().forEachRemaining(actualFields::add);
+
+        if (!actualFields.equals(RECIPE_FIELDS)) {
+            throw new IllegalStateException("Gemini recipe item fields do not match API spec.");
+        }
+    }
+
+    private void validateRecipeValues(RecommendedRecipe recipe, RecommendationBucket bucket) {
+        if (recipe.recipeId() == null || recipe.recipeId() <= 0) {
+            throw new IllegalStateException("Gemini recipe_id must be a positive number.");
+        }
+        if (isBlank(recipe.recipeName()) || isBlank(recipe.category())) {
+            throw new IllegalStateException("Gemini recipe_name and category must not be blank.");
+        }
+        if (recipe.allIngredients().isEmpty()) {
+            throw new IllegalStateException("Gemini all_ingredients must not be empty.");
+        }
+        if (recipe.instructions().isEmpty()) {
+            throw new IllegalStateException("Gemini instructions must not be empty.");
+        }
+        if (!recipe.allIngredients().containsAll(recipe.expiringIngredientsUsed())) {
+            throw new IllegalStateException("Gemini expiring_ingredients_used must be a subset of all_ingredients.");
+        }
+        if (!recipe.allIngredients().containsAll(recipe.missingIngredients())) {
+            throw new IllegalStateException("Gemini missing_ingredients must be a subset of all_ingredients.");
+        }
+
+        switch (bucket) {
+            case AVAILABLE_NOW -> {
+                if (!recipe.missingIngredients().isEmpty()) {
+                    throw new IllegalStateException("available_now recipes must have empty missing_ingredients.");
+                }
+            }
+            case NEED_FEW_INGREDIENTS -> {
+                int missingCount = recipe.missingIngredients().size();
+                if (missingCount < 1 || missingCount > 2) {
+                    throw new IllegalStateException("need_few_ingredients recipes must have 1 or 2 missing ingredients.");
+                }
+            }
+        }
+    }
+
+    private void validateDuplicateRecipeIds(List<RecommendedRecipe> availableNow,
+                                            List<RecommendedRecipe> needFewIngredients) {
+        Set<Long> ids = new LinkedHashSet<>();
+        StreamSupport.stream(availableNow.spliterator(), false)
+                .map(RecommendedRecipe::recipeId)
+                .forEach(recipeId -> {
+                    if (!ids.add(recipeId)) {
+                        throw new IllegalStateException("Gemini response contains duplicate recipe_id values.");
+                    }
+                });
+        StreamSupport.stream(needFewIngredients.spliterator(), false)
+                .map(RecommendedRecipe::recipeId)
+                .forEach(recipeId -> {
+                    if (!ids.add(recipeId)) {
+                        throw new IllegalStateException("Gemini response contains duplicate recipe_id values.");
+                    }
+                });
     }
 
     private List<String> toStringList(JsonNode node) {
         if (!node.isArray()) {
-            return List.of();
+            throw new IllegalStateException("Gemini array field must be an array.");
         }
 
-        return java.util.stream.StreamSupport.stream(node.spliterator(), false)
+        return StreamSupport.stream(node.spliterator(), false)
                 .map(JsonNode::asText)
                 .toList();
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private record GeminiGenerateContentRequest(
@@ -286,5 +395,10 @@ public class GeminiRecipeRecommendationEngine implements RecipeRecommendationEng
             @JsonProperty("response_schema")
             JsonNode responseJsonSchema
     ) {
+    }
+
+    private enum RecommendationBucket {
+        AVAILABLE_NOW,
+        NEED_FEW_INGREDIENTS
     }
 }

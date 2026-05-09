@@ -18,6 +18,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 import java.time.LocalDate;
 
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -79,11 +80,8 @@ class RecipeRecommendationControllerTest {
                 .andExpect(jsonPath("$.available_now[0].recipe_id").value(101))
                 .andExpect(jsonPath("$.available_now[0].recipe_name").value("대파 달걀 볶음"))
                 .andExpect(jsonPath("$.available_now[0].missing_ingredients", hasSize(0)))
-                .andExpect(jsonPath("$.need_few_ingredients", hasSize(1)))
-                .andExpect(jsonPath("$.need_few_ingredients[0].recipe_id").value(102))
-                .andExpect(jsonPath("$.need_few_ingredients[0].missing_ingredients", hasSize(2)))
-                .andExpect(jsonPath("$.need_few_ingredients[0].missing_ingredients[0]").value("간장"))
-                .andExpect(jsonPath("$.need_few_ingredients[0].missing_ingredients[1]").value("설탕"));
+                .andExpect(jsonPath("$.need_few_ingredients", hasSize(2)))
+                .andExpect(jsonPath("$.need_few_ingredients[*].recipe_id", hasItem(102)));
     }
 
     @DisplayName("추천 가능한 레시피가 없으면 빈 배열을 반환한다")
@@ -104,6 +102,30 @@ class RecipeRecommendationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.available_now", hasSize(0)))
                 .andExpect(jsonPath("$.need_few_ingredients", hasSize(0)));
+    }
+
+    @DisplayName("유통기한 임박 재료가 없어도 만들 수 있는 레시피는 available_now로 추천된다")
+    @Test
+    void returnsAvailableNowWithoutExpiringIngredients() throws Exception {
+        AuthSession user = signupAndLogin("nonexpiring@example.com");
+        savePreference(user.accessToken(), """
+                {
+                  "favorite_cuisines": ["KOREAN"],
+                  "difficulty_preference": "EASY",
+                  "quick_meal_preferred": false
+                }
+                """);
+        saveFridgeItem(user.userId(), "대파", "1단", 10);
+        saveFridgeItem(user.userId(), "달걀", "4개", 10);
+        saveFridgeItem(user.userId(), "양파", "1개", 10);
+        saveFridgeItem(user.userId(), "우유", "500ml", 10);
+
+        mockMvc.perform(get("/recipes/recommendations")
+                        .header("Authorization", "Bearer " + user.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.available_now", hasSize(1)))
+                .andExpect(jsonPath("$.available_now[0].recipe_id").value(101))
+                .andExpect(jsonPath("$.available_now[0].expiring_ingredients_used", hasSize(0)));
     }
 
     @DisplayName("토큰 없이 추천 API를 호출하면 인증 에러를 반환한다")

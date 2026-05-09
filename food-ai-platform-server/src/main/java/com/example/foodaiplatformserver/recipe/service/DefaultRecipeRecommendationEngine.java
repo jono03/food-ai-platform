@@ -33,11 +33,21 @@ public class DefaultRecipeRecommendationEngine implements RecipeRecommendationEn
         return switch (provider.toLowerCase()) {
             case "gemini" -> geminiRecipeRecommendationEngine.recommend(criteria);
             case "mock" -> mockRecipeRecommendationEngine.recommend(criteria);
-            case "auto" -> hasGeminiApiKey()
-                    ? geminiRecipeRecommendationEngine.recommend(criteria)
-                    : mockRecipeRecommendationEngine.recommend(criteria);
+            case "auto" -> recommendInAutoMode(criteria);
             default -> throw new IllegalArgumentException("Unsupported recommendation provider: " + provider);
         };
+    }
+
+    private RecipeRecommendationResult recommendInAutoMode(RecipeRecommendationCriteria criteria) {
+        if (!hasGeminiApiKey()) {
+            return mockRecipeRecommendationEngine.recommend(criteria);
+        }
+
+        try {
+            return geminiRecipeRecommendationEngine.recommend(criteria);
+        } catch (RuntimeException exception) {
+            return mockRecipeRecommendationEngine.recommend(criteria);
+        }
     }
 
     private boolean hasGeminiApiKey() {
