@@ -306,6 +306,12 @@ async function deleteItem(item_id) {
 // ── 레시피 모달 ──────────────────────────────────────────────
 
 function openRecipe() {
+  // fix #82: 비로그인 시 레시피 추천 접근 차단
+  if (!currentUser) {
+    showToast("⚠️ 로그인 후 레시피를 추천받을 수 있어요");
+    openLogin();
+    return;
+  }
   renderRecipes();
   openModal("recipeModal");
 }
