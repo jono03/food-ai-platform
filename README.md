@@ -211,8 +211,8 @@ food-ai-platform/
 
 | Method | Endpoint | 인증 | 설명 |
 |--------|----------|:----:|------|
-| `POST` | `/api/v1/auth/signup` | ❌ | 회원가입 |
-| `POST` | `/api/v1/auth/login` | ❌ | 로그인 (JWT 발급) |
+| `POST` | `/api/v1/auth/signup` | - | 회원가입 |
+| `POST` | `/api/v1/auth/login` | - | 로그인 (JWT 발급) |
 | `GET` | `/api/v1/fridge-items` | ✅ | 식재료 목록 조회 (검색/필터) |
 | `POST` | `/api/v1/fridge-items` | ✅ | 식재료 추가 |
 | `PUT` | `/api/v1/fridge-items/{id}` | ✅ | 식재료 수정 |
