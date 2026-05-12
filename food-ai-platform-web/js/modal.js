@@ -100,13 +100,15 @@ function doLogout() {
   showToast("👋 로그아웃되었습니다");
 }
 
-// 로그인 상태에 따라 헤더 버튼 텍스트 동기화
+// 로그인 상태에 따라 헤더 버튼 텍스트 & 핸들러 동기화
 function updateAuthButton() {
   const btn = document.getElementById("loginBtn");
   if (currentUser) {
     btn.textContent = `👤 ${currentUser.username} (로그아웃)`;
+    btn.onclick = doLogout;  // fix #83: 로그아웃 핸들러로 교체
   } else {
     btn.textContent = "↗ 로그인";
+    btn.onclick = openLogin; // fix #83: 로그인 핸들러로 복구
   }
 }
 
