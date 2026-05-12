@@ -5,7 +5,9 @@
 document.addEventListener("DOMContentLoaded", () => {
 
   // ── 버튼 이벤트 등록 ───────────────────────────────────────
-  document.getElementById("loginBtn")   .addEventListener("click", openLogin);
+  // loginBtn 핸들러는 updateAuthButton()에서 로그인 상태에 따라 동적으로 설정
+  // fix #83: 아래 고정 바인딩 제거 → modal.js updateAuthButton()으로 일원화
+  // document.getElementById("loginBtn").addEventListener("click", openLogin);
   document.getElementById("addItemBtn") .addEventListener("click", openAddItem);
   document.getElementById("recipeBtn")  .addEventListener("click", openRecipe);
   document.getElementById("doLoginBtn") .addEventListener("click", doLogin);
@@ -37,6 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ── 초기 렌더링 ────────────────────────────────────────────
   renderItems();       // 식품 목록
   renderOnboard();     // 온보딩 설문
+  updateAuthButton();  // fix #83: 초기 로그인 버튼 핸들러 등록
 
   // 온보딩 모달 열기
   openModal("onboardModal");
