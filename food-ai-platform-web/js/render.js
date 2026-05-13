@@ -35,6 +35,16 @@ function locLabel(loc) {
   return loc.replace(/[^\uAC00-\uD7A3]/g, "");
 }
 
+/** XSS 방지 — innerHTML 삽입 전 HTML 특수문자 이스케이프 */
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 // ── 식품 목록 렌더링 ─────────────────────────────────────────
 
 /** GET /fridge-items — 검색/필터 조건으로 목록 조회 후 렌더링 */
@@ -87,12 +97,12 @@ function buildFoodCard(item) {
 
   return `
     <div class="food-card ${statusClass}">
-      <div class="days-badge ${statusClass}">${item.status_text}</div>
+      <div class="days-badge ${statusClass}">${escapeHtml(item.status_text)}</div>
       <div class="food-info">
-        <div class="food-name">${item.name}</div>
+        <div class="food-name">${escapeHtml(item.name)}</div>
         <div class="food-meta">
-          <span class="food-qty">${item.quantity}</span>
-          <span class="location-badge loc-${locText}">${locFront}</span>
+          <span class="food-qty">${escapeHtml(item.quantity)}</span>
+          <span class="location-badge loc-${escapeHtml(locText)}">${escapeHtml(locFront)}</span>
         </div>
       </div>
       <div class="food-actions">
@@ -134,8 +144,8 @@ async function updateSidebar() {
       soonCard.style.display = "";
       soonList.innerHTML = data.expiring_soon_items.map(i => `
         <div class="expired-item">
-          <span>${i.name}</span>
-          <span class="days" style="color:var(--yellow)">${i.status_text}</span>
+          <span>${escapeHtml(i.name)}</span>
+          <span class="days" style="color:var(--yellow)">${escapeHtml(i.status_text)}</span>
         </div>`).join("");
     } else {
       soonCard.style.display = "none";
@@ -148,8 +158,8 @@ async function updateSidebar() {
       expCard.style.display = "";
       expList.innerHTML = data.expired_items.map(i => `
         <div class="expired-item">
-          <span>${i.name}</span>
-          <span class="days">${i.status_text}</span>
+          <span>${escapeHtml(i.name)}</span>
+          <span class="days">${escapeHtml(i.status_text)}</span>
         </div>`).join("");
     } else {
       expCard.style.display = "none";
@@ -204,7 +214,7 @@ function buildRecipeCard(recipe, needBuy) {
     .map((s, i) => `
       <div class="step-item">
         <div class="step-num">${i + 1}</div>
-        <div>${s}</div>
+        <div>${escapeHtml(s)}</div>
       </div>`)
     .join("");
 
@@ -212,7 +222,7 @@ function buildRecipeCard(recipe, needBuy) {
     ? `<div class="need-to-buy">
          <div class="label">🛒 구매 필요 재료</div>
          <div class="ingredient-tags">
-           ${recipe.missing_ingredients.map(e => `<span class="ingredient-tag missing">${e}</span>`).join("")}
+           ${recipe.missing_ingredients.map(e => `<span class="ingredient-tag missing">${escapeHtml(e)}</span>`).join("")}
          </div>
        </div>`
     : "";
@@ -224,8 +234,8 @@ function buildRecipeCard(recipe, needBuy) {
       <div class="recipe-card-header">
         <div class="recipe-avatar">🍽️</div>
         <div>
-          <div class="recipe-name">${recipe.recipe_name}</div>
-          <span class="category-tag">${recipe.category}</span>
+          <div class="recipe-name">${escapeHtml(recipe.recipe_name)}</div>
+          <span class="category-tag">${escapeHtml(recipe.category)}</span>
         </div>
       </div>
       ${buyBox}
@@ -233,7 +243,7 @@ function buildRecipeCard(recipe, needBuy) {
         <div style="font-size:12px;color:var(--gray-400);margin-bottom:6px;">전체 재료</div>
         <div class="ingredient-tags">
           ${(recipe.all_ingredients ?? [])
-            .map(e => `<span class="ingredient-tag ${missing.has(e) ? "missing" : ""}">${e}</span>`)
+            .map(e => `<span class="ingredient-tag ${missing.has(e) ? "missing" : ""}">${escapeHtml(e)}</span>`)
             .join("")}
         </div>
       </div>
@@ -243,9 +253,9 @@ function buildRecipeCard(recipe, needBuy) {
       </div>
       <button
         class="select-btn"
-        data-id="${recipe.recipe_id}"
-        data-name="${recipe.recipe_name}"
-        data-category="${recipe.category}"
+        data-id="${escapeHtml(recipe.recipe_id)}"
+        data-name="${escapeHtml(recipe.recipe_name)}"
+        data-category="${escapeHtml(recipe.category)}"
         onclick="selectRecipe(this)">
         👍 선택했어요 👍
       </button>
