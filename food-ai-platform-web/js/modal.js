@@ -48,6 +48,9 @@ async function authFetch(url, options = {}) {
 // ── 로그인 ───────────────────────────────────────────────────
 
 function openLogin() {
+  // fix #79: 브라우저 자동완성으로 채워진 값 초기화
+  document.getElementById("loginEmail").value = "";
+  document.getElementById("loginPw").value = "";
   openModal("loginModal");
 }
 

@@ -82,7 +82,7 @@
     <div class="search-filter">
       <div class="search-wrap">
         <span class="search-icon">🔍</span>
-        <input class="search-input" type="text" placeholder="식품 검색..." id="searchInput" />
+        <input class="search-input" type="text" placeholder="식품 검색..." id="searchInput" autocomplete="off" />
       </div>
       <div class="filter-tabs">
         <button class="filter-tab active" data-filter="all">전체</button>
@@ -118,11 +118,11 @@
     </div>
     <div class="form-group">
       <label class="form-label">이메일</label>
-      <input class="form-input" type="email" placeholder="example@email.com" id="loginEmail" />
+      <input class="form-input" type="email" placeholder="example@email.com" id="loginEmail" autocomplete="username" />
     </div>
     <div class="form-group">
       <label class="form-label">비밀번호</label>
-      <input class="form-input" type="password" placeholder="••••••••" id="loginPw" />
+      <input class="form-input" type="password" placeholder="••••••••" id="loginPw" autocomplete="current-password" />
     </div>
     <button class="btn btn-primary btn-full" id="doLoginBtn">로그인</button>
     <p class="login-note">계정이 없으신가요? <button class="link-btn" onclick="openSignup()">회원가입</button></p>
