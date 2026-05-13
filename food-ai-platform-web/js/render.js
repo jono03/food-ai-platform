@@ -49,6 +49,16 @@ function escapeHtml(str) {
 
 /** GET /fridge-items — 검색/필터 조건으로 목록 조회 후 렌더링 */
 async function renderItems() {
+  // fix #76: 비로그인 시 API 호출 없이 안내 메시지 렌더링
+  if (!getToken()) {
+    document.getElementById("foodGrid").innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🔒</div>
+        <p>로그인 후 냉장고를 확인하세요!</p>
+      </div>`;
+    return;
+  }
+
   const query = document.getElementById("searchInput").value.trim().toLowerCase();
 
   // Query Parameter 구성
@@ -116,6 +126,20 @@ function buildFoodCard(item) {
 
 /** GET /fridge-items/summary — 사이드바 통계/임박/만료 렌더링 */
 async function updateSidebar() {
+  // fix #76: 비로그인 시 사이드바 통계 API 호출 생략
+  if (!getToken()) {
+    ["stat-total", "stat-expiring", "stat-expired"].forEach(id => {
+      document.getElementById(id).textContent = 0;
+    });
+    ["냉장", "냉동", "실온"].forEach(key => {
+      document.getElementById("bar-" + key).style.width = "0%";
+      document.getElementById("cnt-" + key).textContent = 0;
+    });
+    document.getElementById("soon-card").style.display = "none";
+    document.getElementById("expired-card").style.display = "none";
+    return;
+  }
+
   try {
     const res = await authFetch(`${BASE_URL}/fridge-items/summary`);
     if (!res.ok) throw new Error();
