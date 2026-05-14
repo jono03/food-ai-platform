@@ -64,9 +64,8 @@ async function renderItems() {
   // Query Parameter 구성
   const params = new URLSearchParams();
   if (query) params.set("keyword", query);
-  if (currentFilter !== "all") params.set("storage_location", toApiLocation(`🧊 ${currentFilter}`) || toApiLocation(`❄️ ${currentFilter}`) || toApiLocation(`🏠 ${currentFilter}`));
 
-  // 필터 탭 → API enum 직접 매핑
+  // fix #81: 첫 번째 dead code 블록 제거, filterToApi 단일 블록으로 통일
   const filterToApi = { "냉장": "REFRIGERATED", "냉동": "FROZEN", "실온": "ROOM_TEMP" };
   if (currentFilter !== "all") {
     params.set("storage_location", filterToApi[currentFilter]);
