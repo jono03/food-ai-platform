@@ -390,6 +390,9 @@ async function onboardNext() {
 
 /** 온보딩 결과 → PUT /users/me/preferences */
 async function savePreferences() {
+  // fix #78: 비로그인 시 API 호출 생략, 온보딩 플로우는 정상 진행
+  if (!getToken()) return;
+
   // step 0: 좋아하는 음식 종류 (multi)
   const favorite_cuisines = (onboardSelections[0] ?? [])
     .map(v => CUISINE_TO_API[v])
