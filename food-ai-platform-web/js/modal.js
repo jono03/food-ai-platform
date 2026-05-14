@@ -48,9 +48,6 @@ async function authFetch(url, options = {}) {
 // ── 로그인 ───────────────────────────────────────────────────
 
 function openLogin() {
-  // fix #79: 브라우저 자동완성으로 채워진 값 초기화
-  document.getElementById("loginEmail").value = "";
-  document.getElementById("loginPw").value = "";
   openModal("loginModal");
 }
 
@@ -88,6 +85,7 @@ async function doLogin() {
     closeModal("loginModal");
     showToast("✅ 로그인되었습니다!");
     updateAuthButton();
+    renderItems(); // fix: 로그인 후 식품 목록 갱신
 
   } catch (e) {
     showToast("⚠️ 서버에 연결할 수 없습니다");
@@ -100,6 +98,7 @@ function doLogout() {
   currentUser = null;
   removeToken();
   updateAuthButton();
+  renderItems(); // fix: 로그아웃 후 식품 목록 초기화
   showToast("👋 로그아웃되었습니다");
 }
 
