@@ -77,6 +77,7 @@ async function renderItems() {
     if (!res.ok) throw new Error();
 
     const list = await res.json();
+    fridgeItems = list; // 전역 동기화 — buildRecipeCard 만료 체크에 사용
     const grid = document.getElementById("foodGrid");
 
     if (list.length === 0) {
@@ -234,6 +235,12 @@ async function renderRecipes() {
  *              missing_ingredients, instructions, expiring_ingredients_used }
  */
 function buildRecipeCard(recipe, needBuy) {
+  // 만료된 재료 Set — fridgeItems 기준 (status: "EXPIRED")
+  const expiredNames = new Set(
+    fridgeItems.filter(i => i.status === "EXPIRED").map(i => i.name)
+  );
+  const expiredUsed = (recipe.all_ingredients ?? []).filter(e => expiredNames.has(e));
+
   const stepsHtml = (recipe.instructions ?? [])
     .map((s, i) => `
       <div class="step-item">
@@ -251,6 +258,16 @@ function buildRecipeCard(recipe, needBuy) {
        </div>`
     : "";
 
+  // 만료 재료 경고 배너
+  const expiredBox = expiredUsed.length > 0
+    ? `<div class="need-to-buy" style="background:var(--red-50,#fff1f1);border-left:3px solid var(--red,#e53e3e);">
+         <div class="label" style="color:var(--red,#e53e3e);">⚠️ 유통기한 지난 재료 포함</div>
+         <div class="ingredient-tags">
+           ${expiredUsed.map(e => `<span class="ingredient-tag missing">${escapeHtml(e)}</span>`).join("")}
+         </div>
+       </div>`
+    : "";
+
   const missing = new Set(recipe.missing_ingredients ?? []);
 
   return `
@@ -263,11 +280,12 @@ function buildRecipeCard(recipe, needBuy) {
         </div>
       </div>
       ${buyBox}
+      ${expiredBox}
       <div>
         <div style="font-size:12px;color:var(--gray-400);margin-bottom:6px;">전체 재료</div>
         <div class="ingredient-tags">
           ${(recipe.all_ingredients ?? [])
-            .map(e => `<span class="ingredient-tag ${missing.has(e) ? "missing" : ""}">${escapeHtml(e)}</span>`)
+            .map(e => `<span class="ingredient-tag ${missing.has(e) ? "missing" : ""} ${expiredNames.has(e) ? "missing" : ""}" ${expiredNames.has(e) ? 'title="유통기한 만료"' : ""}>${escapeHtml(e)}${expiredNames.has(e) ? " ⚠️" : ""}</span>`)
             .join("")}
         </div>
       </div>
