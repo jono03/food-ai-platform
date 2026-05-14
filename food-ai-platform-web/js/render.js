@@ -212,17 +212,31 @@ async function renderRecipes() {
     document.getElementById("cnt-now").textContent = nowList.length + "개";
     document.getElementById("cnt-buy").textContent = buyList.length + "개";
 
-    const allCards = [
-      ...nowList.map(r => buildRecipeCard(r, false)),
-      ...buyList.map(r => buildRecipeCard(r, true)),
-    ];
-
-    grid.innerHTML = allCards.length
-      ? allCards.join("")
-      : `<div class="recipe-empty">
+    // fix: allCards 단일 배열 제거 → 섹션별 분리 렌더링
+    if (nowList.length === 0 && buyList.length === 0) {
+      grid.innerHTML = `<div class="recipe-empty">
            <div style="font-size:40px;margin-bottom:12px">🤔</div>
            <p>냉장고에 식품을 추가하면 레시피를 추천해드려요!</p>
          </div>`;
+    } else {
+      const nowSection = nowList.length > 0 ? `
+        <div class="recipe-section-header" style="grid-column:1/-1;margin:8px 0 4px;font-weight:600;color:var(--green,#38a169);">
+          ✅ 지금 바로 만들 수 있어요
+        </div>
+        <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:12px;">
+          ${nowList.map(r => buildRecipeCard(r, false)).join("")}
+        </div>` : "";
+
+      const buySection = buyList.length > 0 ? `
+        <div class="recipe-section-header" style="grid-column:1/-1;margin:16px 0 4px;font-weight:600;color:var(--yellow,#d69e2e);">
+          🛒 재료 조금만 사면 만들 수 있어요
+        </div>
+        <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:12px;">
+          ${buyList.map(r => buildRecipeCard(r, true)).join("")}
+        </div>` : "";
+
+      grid.innerHTML = nowSection + buySection;
+    }
 
   } catch (e) {
     grid.innerHTML = `<div class="recipe-empty"><p>⚠️ 레시피를 불러올 수 없습니다</p></div>`;
