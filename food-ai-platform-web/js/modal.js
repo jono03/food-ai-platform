@@ -45,6 +45,28 @@ async function authFetch(url, options = {}) {
   });
 }
 
+async function initializeAuthState() {
+  if (!getToken()) {
+    currentUser = null;
+    currentPreference = null;
+    return;
+  }
+
+  try {
+    const res = await authFetch(`${BASE_URL}/auth/me`);
+    if (!res.ok) throw new Error("인증 정보를 확인할 수 없습니다.");
+
+    currentUser = await res.json();
+    await loadCurrentPreference();
+    await syncPendingPreferences();
+  } catch (e) {
+    currentUser = null;
+    currentPreference = null;
+    removeToken();
+    showToast("⚠️ 다시 로그인해주세요");
+  }
+}
+
 // ── 로그인 ───────────────────────────────────────────────────
 
 function openLogin() {
@@ -85,6 +107,8 @@ async function doLogin() {
     closeModal("loginModal");
     showToast("✅ 로그인되었습니다!");
     updateAuthButton();
+    await syncPendingPreferences();
+    await loadCurrentPreference();
     renderItems(); // fix: 로그인 후 식품 목록 갱신
 
   } catch (e) {
@@ -96,6 +120,7 @@ async function doLogin() {
 
 function doLogout() {
   currentUser = null;
+  currentPreference = null;
   removeToken();
   updateAuthButton();
   renderItems(); // fix: 로그아웃 후 식품 목록 초기화

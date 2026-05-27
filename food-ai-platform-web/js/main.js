@@ -2,7 +2,7 @@
 //  main.js  —  페이지 로드 후 초기화 & 이벤트 등록
 // ============================================================
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
 
   // ── 버튼 이벤트 등록 ───────────────────────────────────────
   // loginBtn 핸들러는 updateAuthButton()에서 로그인 상태에 따라 동적으로 설정
@@ -37,10 +37,12 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ── 초기 렌더링 ────────────────────────────────────────────
-  renderItems();       // 식품 목록
-  renderOnboard();     // 온보딩 설문
-  updateAuthButton();  // fix #83: 초기 로그인 버튼 핸들러 등록
+  await initializeAuthState(); // 새로고침 후에도 토큰 기반 로그인 상태 복원
+  renderItems();               // 식품 목록
+  renderOnboard();             // 온보딩 설문
+  updateAuthButton();          // fix #83: 초기 로그인 버튼 핸들러 등록
 
-  // 온보딩 모달 열기
-  openModal("onboardModal");
+  if (shouldOpenOnboarding()) {
+    openModal("onboardModal");
+  }
 });

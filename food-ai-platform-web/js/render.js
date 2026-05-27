@@ -411,19 +411,19 @@ async function onboardNext() {
   onboardStep++;
   if (onboardStep >= ONBOARD_STEPS.length) {
     // 마지막 단계 — PUT /users/me/preferences 호출
-    await savePreferences();
+    const result = await savePreferences();
+    if (!result.ok && !result.pending) return;
+
     closeModal("onboardModal");
-    showToast("설정 완료! 스마트 냉장고에 오신 걸 환영해요 🎉");
+    showToast(result.pending
+      ? "로그인하면 취향 정보를 저장할게요"
+      : "설정 완료! 스마트 냉장고에 오신 걸 환영해요 🎉");
     return;
   }
   renderOnboard();
 }
 
-/** 온보딩 결과 → PUT /users/me/preferences */
-async function savePreferences() {
-  // fix #78: 비로그인 시 API 호출 생략, 온보딩 플로우는 정상 진행
-  if (!getToken()) return;
-
+function buildPreferencePayload() {
   // step 0: 좋아하는 음식 종류 (multi)
   const favorite_cuisines = (onboardSelections[0] ?? [])
     .map(v => CUISINE_TO_API[v])
@@ -434,14 +434,103 @@ async function savePreferences() {
   const { difficulty_preference, quick_meal_preferred } =
     DIFFICULTY_TO_API[diffKey] ?? { difficulty_preference: "NORMAL", quick_meal_preferred: false };
 
-  try {
-    const res = await authFetch(`${BASE_URL}/users/me/preferences`, {
-      method : "PUT",
-      body   : JSON.stringify({ favorite_cuisines, difficulty_preference, quick_meal_preferred }),
-    });
-    if (!res.ok) throw new Error();
-  } catch (e) {
-    // 취향 저장 실패해도 온보딩 진행은 막지 않음
-    console.warn("취향 저장 실패:", e);
+  return { favorite_cuisines, difficulty_preference, quick_meal_preferred };
+}
+
+function rememberPendingPreferences(payload) {
+  localStorage.setItem(PENDING_PREFERENCES_KEY, JSON.stringify(payload));
+  localStorage.setItem(ONBOARDING_COMPLETE_KEY, "true");
+}
+
+async function upsertPreferences(payload) {
+  const res = await authFetch(`${BASE_URL}/users/me/preferences`, {
+    method : "PUT",
+    body   : JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const message = await res.text();
+    throw new Error(message || "취향 저장에 실패했습니다.");
   }
+
+  currentPreference = await res.json();
+  localStorage.removeItem(PENDING_PREFERENCES_KEY);
+  localStorage.setItem(ONBOARDING_COMPLETE_KEY, "true");
+  return currentPreference;
+}
+
+/** 온보딩 결과 → PUT /users/me/preferences */
+async function savePreferences() {
+  const payload = buildPreferencePayload();
+
+  if (payload.favorite_cuisines.length === 0) {
+    showToast("⚠️ 좋아하는 음식 종류를 하나 이상 선택해주세요");
+    onboardStep = 0;
+    renderOnboard();
+    return { ok: false, pending: false };
+  }
+
+  if (!getToken()) {
+    rememberPendingPreferences(payload);
+    return { ok: true, pending: true };
+  }
+
+  try {
+    await upsertPreferences(payload);
+    return { ok: true, pending: false };
+  } catch (e) {
+    console.warn("취향 저장 실패:", e);
+    showToast("⚠️ 취향 정보를 저장하지 못했습니다. 잠시 후 다시 시도해주세요");
+    return { ok: false, pending: false };
+  }
+}
+
+async function syncPendingPreferences() {
+  if (!getToken()) return;
+
+  const raw = localStorage.getItem(PENDING_PREFERENCES_KEY);
+  if (!raw) return;
+
+  try {
+    await upsertPreferences(JSON.parse(raw));
+    showToast("✅ 저장해둔 취향 정보를 반영했어요");
+  } catch (e) {
+    console.warn("대기 중인 취향 저장 실패:", e);
+  }
+}
+
+async function loadCurrentPreference() {
+  if (!getToken()) return null;
+
+  try {
+    const res = await authFetch(`${BASE_URL}/users/me/preferences`);
+    if (!res.ok) throw new Error("취향 정보를 조회할 수 없습니다.");
+
+    currentPreference = await res.json();
+    if (hasSavedPreference(currentPreference)) {
+      localStorage.setItem(ONBOARDING_COMPLETE_KEY, "true");
+    }
+    return currentPreference;
+  } catch (e) {
+    console.warn("취향 조회 실패:", e);
+    currentPreference = null;
+    return null;
+  }
+}
+
+function hasSavedPreference(preference) {
+  return Boolean(
+    preference
+    && (preference.difficulty_preference
+      || preference.quick_meal_preferred === true
+      || preference.quick_meal_preferred === false
+      || (preference.favorite_cuisines ?? []).length > 0)
+  );
+}
+
+function shouldOpenOnboarding() {
+  if (getToken()) {
+    return !hasSavedPreference(currentPreference);
+  }
+  return localStorage.getItem(ONBOARDING_COMPLETE_KEY) !== "true";
 }
