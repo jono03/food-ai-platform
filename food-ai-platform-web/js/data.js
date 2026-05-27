@@ -5,6 +5,8 @@
 
 // ── API BASE URL ─────────────────────────────────────────────
 const BASE_URL = "https://food-ai-platform-api.with-momo.com/api/v1";
+const PENDING_PREFERENCES_KEY = "pending_preferences";
+const ONBOARDING_COMPLETE_KEY = "onboarding_complete";
 
 // ── storage_location 변환 ────────────────────────────────────
 // 프론트 표시값 → API enum
@@ -34,6 +36,7 @@ function fromApiLocation(apiEnum) {
 // ── USER (현재 로그인한 사용자) ──────────────────────────────
 // 실제 서비스에서는 서버에서 받아올 값
 let currentUser = null;
+let currentPreference = null;
 /*
   currentUser 구조:
   {
