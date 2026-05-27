@@ -270,3 +270,6 @@ cd food-ai-platform-server
 - 음식물 쓰레기 감축
 - 냉장고 관리 효율 향상
 - 개인 맞춤형 레시피 추천으로 요리 실행 돕기
+
+## 배포주소
+https://food-ai-platform.with-momo.com/
