@@ -266,11 +266,159 @@ cd food-ai-platform-server
 
 ---
 
+## 📖 사용자 가이드
+
+### 1단계 — 회원가입 & 로그인
+1. 배포 주소 접속: `https://food-ai-platform.with-momo.com`
+2. 우측 상단 **로그인** 버튼 클릭
+3. 이메일 / 비밀번호 입력 후 회원가입 또는 로그인
+
+### 2단계 — 온보딩 (취향 설정)
+- 최초 로그인 시 온보딩 모달이 자동으로 표시됨
+- **좋아하는 음식 종류** 선택: 한식 / 일식 / 양식 / 중식
+- **조리 난이도** 선택: 쉬움 / 보통 / 어려워도 OK / 간편식 선호
+- 설정은 이후 AI 레시피 추천에 반영됨 (마이페이지에서 언제든 수정 가능)
+
+### 3단계 — 식재료 등록
+1. 우측 상단 **+ 식품 추가** 버튼 클릭
+2. 식품명, 수량, 보관 위치(냉장/냉동/실온), 유통기한 입력
+3. 추가 완료 시 메인 화면 목록에 즉시 반영
+
+### 4단계 — 냉장고 현황 확인
+- 좌측 사이드바에서 전체 식품 수 / 임박 / 만료 수 확인
+- 유통기한 상태에 따라 카드 색상 구분
+  - 🟢 초록 — 여유 있음
+  - 🟡 노랑 — 3일 이내 임박
+  - 🔴 빨강 — 유통기한 만료
+- 식재료 카드 우측 아이콘으로 수정 / 삭제 가능
+
+### 5단계 — AI 레시피 추천
+1. 좌측 하단 **✨ AI 레시피 추천받기** 버튼 클릭
+2. 추천 결과는 두 탭으로 구분
+   - **지금 바로 만들 수 있어요** — 현재 보유 재료만으로 완성 가능
+   - **재료 조금만 사면 만들 수 있어요** — 1~2가지 추가 구매 필요
+3. 레시피 카드에서 전체 재료, 부족한 재료, 조리법 확인
+4. **선택했어요** 버튼 클릭 시 이력 저장 → 이후 추천 개인화에 반영
+
+---
+
+## 🛠️ 개발자 가이드
+
+### 개발 환경 요구사항
+
+| 항목 | 버전 |
+|------|------|
+| Java | 21 |
+| Gradle | 8.x (Wrapper 포함) |
+| MySQL | 8.4 |
+| Node.js | 불필요 (Vanilla JS) |
+| Docker | 선택 사항 |
+
+### 로컬 개발 환경 설정
+
+#### 1. 저장소 클론
+
+```bash
+git clone https://github.com/jono03/food-ai-platform.git
+cd food-ai-platform
+```
+
+#### 2. MySQL 데이터베이스 생성
+
+```sql
+CREATE DATABASE food_ai_platform
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+CREATE USER 'food_ai_platform'@'localhost' IDENTIFIED BY 'your_password';
+GRANT ALL PRIVILEGES ON food_ai_platform.* TO 'food_ai_platform'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+#### 3. 환경변수 설정
+
+`food-ai-platform-server/` 디렉토리에 `.env` 파일 생성 또는 OS 환경변수로 설정:
+
+```env
+SPRING_DATASOURCE_URL=jdbc:mysql://localhost:3306/food_ai_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+SPRING_DATASOURCE_USERNAME=food_ai_platform
+SPRING_DATASOURCE_PASSWORD=your_password
+APP_JWT_SECRET=your_jwt_secret_key
+APP_GEMINI_API_KEY=your_gemini_api_key   # 없으면 mock 엔진으로 자동 전환
+```
+
+> Gemini API 키는 [Google AI Studio](https://aistudio.google.com/)에서 발급
+
+#### 4. 백엔드 실행
+
+```bash
+cd food-ai-platform-server
+./gradlew bootRun
+# 서버 기본 포트: 8080
+# API Base URL: http://localhost:8080/api/v1
+```
+
+#### 5. 프론트엔드 실행
+
+```bash
+# VSCode Live Server 확장 사용 권장 (포트 5500)
+# 또는 브라우저에서 food-ai-platform-web/index.html 직접 열기
+```
+
+> **CORS 주의:** 백엔드 기본 허용 origin은 `http://localhost:5500`, `http://127.0.0.1:5500`. 다른 포트 사용 시 `application.properties`의 `app.cors.allowed-origins` 수정 필요
+
+### 브랜치 전략
+
+```
+main          # 배포 브랜치 — 직접 푸시 금지
+└── feature/  # 기능 개발 브랜치 (예: feature/recipe-filter)
+└── fix/      # 버그 수정 브랜치 (예: fix/cors-error)
+```
+
+- 기능 단위로 브랜치 생성 후 PR → 코드 리뷰 → main 병합
+- 커밋 메시지: `feat: 레시피 필터 기능 추가` / `fix: CORS 오류 수정`
+
+### 추천 엔진 전환
+
+`application.properties`에서 `app.recipe.recommendation.provider` 값으로 제어:
+
+| 값 | 동작 |
+|----|------|
+| `gemini` | Gemini API 전용 (키 없으면 오류) |
+| `mock` | 내부 mock 엔진 전용 |
+| `auto` | Gemini 우선, 실패 시 mock으로 자동 전환 (기본값) |
+
+### API 문서 확인
+
+로컬 실행 후 Swagger UI 접근:
+```
+http://localhost:8080/api/v1/swagger-ui.html
+```
+
+### Docker로 실행 (선택)
+
+```bash
+cd food-ai-platform-server
+
+# 이미지 빌드
+docker build -t food-ai-platform-server .
+
+# 실행 (환경변수 주입)
+docker run -d \
+  -p 8080:8080 \
+  -e SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/food_ai_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul \
+  -e SPRING_DATASOURCE_USERNAME=food_ai_platform \
+  -e SPRING_DATASOURCE_PASSWORD=your_password \
+  -e APP_JWT_SECRET=your_jwt_secret \
+  -e APP_GEMINI_API_KEY=your_gemini_api_key \
+  food-ai-platform-server
+```
+
+---
+
 ## 🎯 프로젝트 목표
 
 - 식재료 낭비 줄이기 (유통기한 관리)
 - 음식물 쓰레기 감축
 - 냉장고 관리 효율 향상
 - 개인 맞춤형 레시피 추천으로 요리 실행 돕기
-
-
